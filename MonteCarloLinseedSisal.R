@@ -9,16 +9,19 @@ library(ggplot2)
 library(combinat)
 library(collections)
 library(plotly)
-library(matlib)
 library(matrixcalc)
 library(reshape2)
+library(jsonlite)
+library(logging)
+library(rhdf5)
 
-MonteCarloLinseed <- R6Class(
-  "MonteCarloLinseed",
+MonteCarloLinseedSisal <- R6Class(
+  "MonteCarloLinseedSisal",
   public = list(
     filtered_samples = NULL,
     linseed_object = NULL,
-    radius_ = NULL,
+    radius_X = NULL,
+    radius_Omega = NULL,
     optimize_iterations_ = NULL,
     search_iterations_ = NULL,
     path_ = NULL,
@@ -34,26 +37,37 @@ MonteCarloLinseed <- R6Class(
     samples = NULL,
     filtered_dataset = NULL,
     new_points = NULL,
+    new_samples_points = NULL,
     init_points = NULL,
     full_proportions = NULL,
     full_basis = NULL,
     data = NULL,
     R = NULL,
+    S = NULL,
     A = NULL,
     X = NULL,
+    Omega = NULL,
     W = NULL,
+    W__ = NULL,
     H = NULL,
-    D = NULL,
+    D_h = NULL,
+    D_w = NULL,
+    init_D_w = NULL,
+    init_D_h = NULL,
     init_X = NULL,
     init_H = NULL,
     init_W = NULL,
-    optim_init_X = NULL,
-    optim_init_H = NULL,
-    optim_init_W = NULL,
+    init_W__ = NULL,
+    init_Omega_ = NULL,
     init_proportions_rows = NULL,
     init_proportions_ = NULL,
     unity = NULL,
     errors_ = NULL,
+    deconv_errors = NULL,
+    deconv_errors_X = NULL,
+    deconv_errors_Omega = NULL,
+    lambda_errors = NULL,
+    beta_errors = NULL,
     optim_init_proportions_rows = NULL,
     optim_init_proportions_ = NULL,
     step_R = NULL,
@@ -72,6 +86,13 @@ MonteCarloLinseed <- R6Class(
     genes_distances = NULL,
     positive_dataset = NULL,
     original_space_dataset = NULL,
+    lambda_ = NULL,
+    beta_ = NULL,
+    is_logging = FALSE,
+    logs = NULL,
+    logs_X = NULL,
+    logs_Omega = NULL,
+    j = NULL,
     
     getFoldChange = function(signatures) {
       cell_types_fc <-
@@ -94,6 +115,7 @@ MonteCarloLinseed <- R6Class(
       W <- (.fcnnls(H_0, filtered_dataset, pseudo = TRUE))$coef
       W
     },
+    
     l2_norm = function(ds) {
       #ds_ <- t(hnsc_male_svd10_filter_ct4$filtered_dataset)-t(hnsc_male_svd10_filter_ct4$init_H)%*%t(hnsc_male_svd10_filter_ct4$init_W)
       sum(apply(ds,2,function(x){sqrt(sum(x^2))}))
@@ -105,16 +127,21 @@ MonteCarloLinseed <- R6Class(
                           cell_types,
                           filtered_samples = c(),
                           topGenes = 100000,
-                          radius = 0.01,
+                          radius_X = 0.01,
+                          radius_Omega = 0.001,
                           optimize_iterations = 5000,
                           search_iterations = 100,
                           epsilon = 0.00001,
                           data = NULL,
-                          metric="mad") {
+                          metric="mad",
+                          lambda=0.01,
+                          beta=0.001,
+                          is_logging=FALSE) {
       self$filtered_samples <- filtered_samples
       self$dataset <- dataset
       self$path_ <- path
-      self$radius_ <- radius
+      self$radius_X <- radius_X
+      self$radius_Omega <- radius_Omega
       self$analysis_name <- analysis_name
       self$topGenes <- topGenes
       self$optimize_iterations_ <- optimize_iterations
@@ -122,6 +149,8 @@ MonteCarloLinseed <- R6Class(
       self$init_markers_names <- c()
       self$cell_types <- cell_types
       self$p <- cell_types - 1
+      self$lambda_ <- lambda
+      self$beta_ <- beta
       
       self$data <- data
       self$unity <- matrix(1, nrow = self$cell_types, ncol = 1)
@@ -156,6 +185,38 @@ MonteCarloLinseed <- R6Class(
       self$epsilon_limit <- sqrt(self$samples*epsilon)
       self$markers_dict <- Dict()
       self$metric <- metric
+      
+      self$is_logging <- is_logging
+    },
+    
+    createLogs = function(){
+      dir.create(file.path(self$path_,"logs"), recursive = T, showWarnings = F)
+      newH5File <- file.path(self$path_,"logs",paste0(self$analysis_name,".h5"))
+      if (file.exists(newH5File)) {
+        file.remove(newH5File)
+      }
+      h5createFile(newH5File)
+      h5createGroup(newH5File, "logs")
+      h5createDataset(newH5File, "logs/stats", c(nrow(self$logs), ncol(self$logs)),
+                      storage.mode = "double", chunk=c(1, ncol(self$logs)),
+                      level=9)
+      h5write(as.matrix(self$logs),
+              newH5File, "logs/stats",
+              index=list(1:nrow(self$logs),1:ncol(self$logs)))
+      
+      h5createDataset(newH5File, "logs/X", c(nrow(self$logs_X), ncol(self$logs_X)),
+                      storage.mode = "double", chunk=c(1, ncol(self$logs_X)),
+                      level=9)
+      h5write(as.matrix(self$logs_X),
+              newH5File, "logs/X",
+              index=list(1:nrow(self$logs_X),1:ncol(self$logs_X)))  
+      
+      h5createDataset(newH5File, "logs/Omega", c(nrow(self$logs_Omega), ncol(self$logs_Omega)),
+                      storage.mode = "double", chunk=c(1, ncol(self$logs_Omega)),
+                      level=9)
+      h5write(as.matrix(self$logs_Omega),
+              newH5File, "logs/Omega",
+              index=list(1:nrow(self$logs_Omega),1:ncol(self$logs_Omega)))  
     },
     
     plotMetricHistogram = function(logScale=F,
@@ -224,36 +285,38 @@ MonteCarloLinseed <- R6Class(
       self$genes_distances <- genes_distances
     },
     
-    getSvdR = function(minus_one = F, add_bias = F, k = self$cell_types) {
+    getSvdProjections = function(k = self$cell_types) {
       self$k <- k
       V <- self$filtered_dataset
+      
+      #R
       N <- ncol(V)
-      V_t <- t(V)
-      if (minus_one) {
-        V <- V - matrix(1, ncol=ncol(V), nrow=nrow(V))
-      }
-      if (add_bias) {
-        
-        V_t_added <- rbind(V_t,matrix(1,nrow=1,ncol=ncol(V_t)))
-        svd_ <- svd(V_t_added)
-        svd_k <- t(svd_$u[,1:k])
-        a <- apply(svd_k,1,sum)[-1]
-        a_1 <- sqrt(N - sum(a^2))
-        svd_k[1,] <- (matrix(1,nrow=1,ncol=N+1) - a%*%svd_k[-1,]) / a_1 
-        svd_k <- svd_k[,1:N]
-        
-      } else {
-        
-        svd_ <- svd(V_t)
-        svd_k <- t(svd_$u[,1:k])
-        a <- apply(svd_k,1,sum)[-1]
-        a_1 <- sqrt(N - sum(a^2))
-        svd_k[1,] <- (matrix(1,nrow=1,ncol=N) - a%*%svd_k[-1,]) / a_1  
-      }
+      R_0 <- matrix(1/sqrt(N),ncol=N,nrow=1)
+      V_t <- t(V)-(t(R_0) %*% R_0 %*% t(V))
+      svd_ <- svd(V_t)
+      
+      svd_k <- matrix(0,ncol=N,nrow=k)
+      svd_k[1,] <- R_0
+      svd_k[2:k,] <- t(svd_$u[,1:(k-1)])
+      
       
       self$R <- svd_k
       self$A <- apply(self$R,1,sum)
       self$new_points <- self$filtered_dataset %*% t(self$R)
+      
+      #S
+      V_col <- t(V) / rowSums(t(V))
+      M <- nrow(V)
+      S_0 <- matrix(1/sqrt(M),ncol=M,nrow=1)
+      V_m <- t(V_col) - t(S_0) %*% S_0 %*% t(V_col)
+      svd_ <- svd(V_m)
+      
+      svd_s_k <- matrix(0,ncol=M,nrow=k)
+      svd_s_k[1,] <- S_0
+      svd_s_k[2:k,] <- t(svd_$u[,1:(k-1)])
+      
+      self$S <- svd_s_k
+      self$new_samples_points <- t(self$S %*% t(V_col))
     },
     
     setReconstructedSpace = function(){
@@ -366,37 +429,54 @@ MonteCarloLinseed <- R6Class(
       cnt_ <- 0
       cnt_proportions <- 0
       cnt_coefficients <- 0
-      only_positive_genes <- rownames(self$filtered_dataset)[apply(self$new_points %*% self$R,1,function(x){all(x>0)})]
-      self$positive_dataset <- self$filtered_dataset[only_positive_genes,]
+      select_k <- self$cell_types
+      limit_ <- select_k*nrow(self$filtered_dataset)
       while (!constraints_) {
         cnt_ <- cnt_ + 1
-        if (cnt_ > (self$cell_types*nrow(self$positive_dataset))) {
+        if (cnt_ > limit_) {
           self$init_X <- NULL
-          stop(paste0("Couldn't find initial points. Negative proportions: ",cnt_proportions,
-                      " Negative coefficients: ",cnt_coefficients))
+          stop(paste0("Couldn't find initial points. Negative coefficients: ",cnt_coefficients))
         }
-        self$init_proportions_rows <- sample(nrow(self$positive_dataset), self$cell_types)
-        self$init_proportions_ <- self$positive_dataset[self$init_proportions_rows, ]
-        rownames(self$init_proportions_) <- paste('Cell type', 1:self$cell_types)
+        
+        self$init_proportions_rows <- sample(nrow(self$filtered_dataset), select_k)
+        self$init_proportions_ <- self$filtered_dataset[self$init_proportions_rows, ]
         self$init_X <- self$init_proportions_ %*% t(self$R)
-        if (all(self$init_X %*% self$R > 0)) {
-          out <- tryCatch(solve(t(self$init_X %*% t(self$init_X)),self$unity), error = function(e) e)
-          if (!any(class(out) == "error")) {
-            #print(t(out))
-            if (all(out > 0)) {
-              #if (all(self$init_X %*% t(self$init_X) %*% self$unity > 0)) {
-              self$init_H <- self$init_X %*% self$R
-              self$init_W <- t(self$fcnnls_coefs(t(self$init_H), t(self$filtered_dataset)))
-              self$init_W <- self$init_W + 0.0000000001
-              constraints_ <- T  
-            } else {
-              cnt_coefficients <- cnt_coefficients + 1
-            }
+        rownames(self$init_X) <- paste('Cell type', 1:self$cell_types)
+        
+        out <- tryCatch(solve(t(self$init_X %*% t(self$init_X)),self$unity), error = function(e) e)
+        if (!any(class(out) == "error")) {
+          #print(out)
+          if (all(out > 0)) {
+            #if (all(self$init_X %*% t(self$init_X) %*% self$unity > 0)) {
+            
+            constraints_ <- T
+            self$init_H <- self$init_X %*% self$R
+            self$init_W <- t(self$fcnnls_coefs(t(self$init_H), t(self$filtered_dataset)))
+            self$init_W <- self$init_W + 0.0000000001
+            self$init_W <- self$init_W/rowSums(self$init_W)
+            
+            self$init_D_h <- diag(as.vector(out))
+            self$init_D_w <- diag(rowSums(t(self$init_W)))
+            self$init_W__<- t(t(self$init_W) / rowSums(t(self$init_W)))
+            self$init_Omega_ <- self$S %*% self$init_W__
+          } else {
+            cnt_coefficients <- cnt_coefficients + 1
           }
-        } else {
-          cnt_proportions <- cnt_proportions + 1
         }
       }
+    },
+    hinge = function(X) {
+      N <- ncol(X)
+      M <- nrow(X)
+      h <- 0
+      for (i in 1:N) {
+        for (j in 1:M) {
+          if (X[j,i] < 0 ) {
+            h <- h + 1
+          }  
+        }  
+      }
+      return(h)
     },
     optimizeInitProportions = function(iterations_=5) {
       if (is.null(self$init_X)) {
@@ -405,22 +485,30 @@ MonteCarloLinseed <- R6Class(
       new_init_X <- self$init_X
       new_init_H <- self$init_H
       new_init_W <- self$init_W
+      new_D_w <- self$init_D_w
+      new_D_h <- self$init_D_h
+      new_init_W__ <- self$init_W__
+      new_init_Omega_ <- self$init_Omega_
       
-      init_error <- norm(self$filtered_dataset-self$init_W%*%self$init_H,"F")
-      #init_error <- self$l2_norm(t(self$filtered_dataset-self$init_W%*%self$init_H))
+      init_error <- norm(self$S %*% self$filtered_dataset %*% t(self$R) - self$init_Omega_ %*% self$init_D_w %*% self$init_X,"F")
+      lambda_error <- self$lambda_ * self$hinge(self$init_X %*% self$R)
+      beta_error <- self$beta_ * self$hinge(t(self$S) %*% self$init_Omega_)
+      total_init_error <- init_error + lambda_error + beta_error
+      print(paste("Init error:",total_init_error))
       all_selections <- self$init_proportions_rows
       new_init_proportions_rows <- self$init_proportions_rows
+      
       for (itr_ in 1:iterations_){
         #change_point <- sample(self$cell_types,1)
         for (change_point in 1:self$cell_types) {
           print(paste(itr_,change_point))
-          left_points <- self$positive_dataset[-all_selections, ]
+          left_points <- self$filtered_dataset[-all_selections, ]
           shuffle_set <- sample(nrow(left_points), nrow(left_points))
           for (elem in shuffle_set) {
             try_points <- new_init_proportions_rows
             try_points[change_point] <- elem
             
-            init_X <- self$positive_dataset[try_points,] %*% t(self$R)
+            init_X <- self$filtered_dataset[try_points,] %*% t(self$R)
             if (all(init_X %*% self$R > 0)) {
               out <- tryCatch(solve(t(init_X %*% t(init_X)),self$unity), error = function(e) e)
               if (!any(class(out) == "error")) {
@@ -429,18 +517,33 @@ MonteCarloLinseed <- R6Class(
                   init_H <- init_X %*% self$R
                   init_W <- t(self$fcnnls_coefs(t(init_H), t(self$filtered_dataset)))
                   init_W <- init_W + 0.0000000001
-                  new_error <- norm(t(self$filtered_dataset)-t(init_H)%*%t(init_W),"F")
-                  #new_error <- self$l2_norm(t(self$filtered_dataset)-t(init_H)%*%t(init_W))
-                  if (new_error < init_error) {
-                    print(new_error)
-                    new_init_X <- init_X
-                    new_init_H <- init_H
-                    new_init_W <- init_W
-                    init_error <- new_error
-                    all_selections <- c(all_selections,elem)
-                    new_init_proportions_rows <- try_points
-                    break 
-                  }
+                  init_W <- init_W/rowSums(init_W)
+                  
+                  D_w <- diag(rowSums(t(init_W)))
+                  init_W__<- t(t(init_W) / rowSums(t(init_W)))
+                  init_Omega_ <- self$S %*% init_W__
+                  
+                  new_error <- norm(self$S %*% self$filtered_dataset %*% t(self$R) - init_Omega_ %*% D_w %*% init_X,"F")
+                  new_lambda_error <- self$lambda_ * self$hinge(init_X %*% self$R)
+                  new_beta_error <- self$beta_ * self$hinge(t(self$S) %*% init_Omega_)
+                  new_total_error <- new_error + new_lambda_error + new_beta_error
+                  
+                    if (new_total_error < total_init_error) {
+                      print(new_total_error)
+                      
+                      new_init_X <- init_X
+                      new_init_H <- init_H
+                      new_init_W <- init_W
+                      new_D_w <- D_w
+                      new_D_h <- diag(as.vector(out))
+                      new_init_W__ <- init_W__
+                      new_init_Omega_ <- init_Omega_
+                      
+                      total_init_error <- new_total_error
+                      all_selections <- c(all_selections,elem)
+                      new_init_proportions_rows <- try_points
+                      break 
+                    }
                 }
               }
             }
@@ -450,14 +553,17 @@ MonteCarloLinseed <- R6Class(
       self$optim_init_proportions_rows <- new_init_proportions_rows
       self$optim_init_proportions_ <- self$filtered_dataset[try_points,]
       
-      self$optim_init_X <- new_init_X
-      self$optim_init_W <- new_init_W
-      self$optim_init_H <- new_init_H
-      
       self$init_X <- new_init_X
       self$init_W <- new_init_W
       self$init_H <- new_init_H
+      
+      self$init_D_w <- new_D_w
+      self$init_D_h <- new_D_h
+      self$init_W__ <- new_init_W__
+      self$init_Omega_ <- new_init_Omega_
+      
     },
+    
     plotRDistance = function(){
       if (is.null(self$R)) {
         stop("No initial R. Run getSvdR() first")
@@ -559,12 +665,50 @@ MonteCarloLinseed <- R6Class(
       if (is.null(self$init_X)) {
         stop("No initial points found. Run selectInit() first")
       }
+      
       self$X <- self$init_X
       self$W <- self$init_W
+      self$W__ <- self$init_W__
       self$H <- self$init_H
-      error_ <- norm(t(self$filtered_dataset) - t(self$H) %*% t(self$W),"F")
-      #error_ <- self$l2_norm(t(self$filtered_dataset) - t(self$H) %*% t(self$W))
-      print(error_)
+      self$D_w <- self$init_D_w
+      self$D_h <- self$init_D_h
+      self$Omega <- self$init_Omega_
+      
+      n <- 0
+      m <- 0
+      self$j <- 1
+      
+      M <- nrow(self$filtered_dataset)
+      V__ <- self$S %*% self$filtered_dataset %*% t(self$R)
+      
+      error_ <- norm(V__ - self$Omega %*% self$D_w %*% self$X,"F")
+      new_error_X <- error_
+      new_error_Omega <- error_
+      lambda_error <- self$lambda_ * self$hinge(self$X %*% self$R)
+      beta_error <- self$beta_ * self$hinge(t(self$S) %*% self$Omega)
+      total_error <- error_ + lambda_error + beta_error
+      print(total_error)
+      
+      col_names <- c("idx","i","iter_","constraint","total_error","lambda_error","beta_error",
+                     "deconv_error_X","deconv_error_Omega","rejected",
+                     "prev_total_error","changed_ct","is_X","is_Omega")
+      self$logs <- as.data.frame(matrix(0,ncol=length(col_names),nrow=0))
+      colnames(self$logs) <- col_names
+      
+      self$logs_X <- as.data.frame(matrix(0,ncol=(3+length(self$X)),nrow=0))
+      
+      if (self$is_logging) {
+        log_vec <- c(self$j,0,0,as.integer(TRUE),total_error,lambda_error,beta_error,
+                     error_,error_,as.integer(FALSE),NA,NA,1,1)
+        names(log_vec) <- col_names
+        self$logs <- rbind(self$logs,log_vec)
+        
+        self$logs_X <- rbind(self$logs_X,
+                             c(self$j,ncol(self$X),nrow(self$X),as.vector(self$X)))
+        
+        self$logs_Omega <- rbind(self$logs_Omega,
+                             c(self$j,ncol(self$Omega),nrow(self$Omega),as.vector(self$Omega)))
+      }
       
       pb <- progress_bar$new(
         format = "Optimization [:bar] :percent eta: :eta",
@@ -572,55 +716,196 @@ MonteCarloLinseed <- R6Class(
       
       constraints_ <- T
       self$errors_ <- matrix(0,ncol=2,nrow=self$optimize_iterations_+1)
-      self$errors_[1,] <- c(1,error_)
+      self$deconv_errors <- matrix(0,ncol=2,nrow=self$optimize_iterations_+1)
+      self$deconv_errors_X <- matrix(0,ncol=2,nrow=self$optimize_iterations_+1)
+      self$deconv_errors_Omega <- matrix(0,ncol=2,nrow=self$optimize_iterations_+1)
+      self$lambda_errors <- matrix(0,ncol=2,nrow=self$optimize_iterations_+1)
+      self$beta_errors <- matrix(0,ncol=2,nrow=self$optimize_iterations_+1)
+      
+      self$errors_[1,] <- c(1,total_error)
+      self$deconv_errors[1,] <- c(1,error_)
+      self$deconv_errors_X[1,] <- c(1,error_)
+      self$deconv_errors_Omega[1,] <- c(1,error_)
+      self$lambda_errors[1,] <- c(1,lambda_error)
+      self$beta_errors[1,] <- c(1,beta_error)
       
       for (i in 1:self$optimize_iterations_) {
         pb$tick()
         points_ <- self$X[,-1]
+        Omega_ <- self$Omega
         constraints_ <- T
+        
         
         for (iter_ in 1:self$search_iterations_) {
           ct <- sample(self$cell_types, 1)
+          self$j <- self$j + 1
           x <- rnorm((self$k-1), mean = 0, sd = 1)
           u <- runif(1,0,1)^(1/(self$k-1))
           tmp_x <- (1/sqrt(sum(x^2)))
-          changes_ <- ((self$radius_ * u) / tmp_x) * x
+          changes_ <- ((self$radius_X * u) / tmp_x) * x
           points_[ct,] <- points_[ct,] + changes_
           X_ <- self$getX(points_, self$A)
-          if (any(X_ %*% self$R < 0)) {
-            constraints_ <- F
-            next
-          }
+          
+          log_vec <- c(1:length(col_names))
+          names(log_vec) <- col_names
+          log_vec["idx"] <- self$j
+          log_vec["i"] <- i
+          log_vec["iter_"] <- iter_
+          log_vec["constraint"] <- as.integer(TRUE)
+          log_vec["prev_total_error"] <- total_error
+          log_vec["total_error"] <- NA
+          log_vec["lambda_error"] <- NA
+          log_vec["beta_error"] <- NA
+          log_vec["deconv_error_X"] <- NA
+          log_vec["deconv_error_Omega"] <- NA
+          log_vec["rejected"] <- as.integer(TRUE)
+          log_vec["changed_ct"] <- ct
+          log_vec["is_X"] <- 1
+          log_vec["is_Omega"] <- 0
+          
           if (any(solve(t(X_ %*% t(X_)),self$unity) < 0)) {
-            #if (any(X_ %*% t(X_) %*% self$unity < 0)) {
             constraints_ <- F
+            if (self$is_logging) {
+              log_vec["constraint"] <- as.integer(FALSE)
+              self$logs <- rbind(self$logs,log_vec)
+              self$logs_X <- rbind(self$logs_X,
+                                   c(self$j,ncol(X_),nrow(X_),as.vector(X_)))
+              self$logs_Omega <- rbind(self$logs_Omega,
+                                   c(self$j,ncol(self$Omega),nrow(self$Omega),as.vector(self$Omega)))
+            }
             next
-          } else {
-            constraints_ <- T
           }
           
           H_ <- X_ %*% self$R
-          new_error <- norm(t(self$filtered_dataset) - t(H_) %*% t(self$W),"F")
-          #new_error <- self$l2_norm(t(self$filtered_dataset) - t(H_) %*% t(self$W))
+          new_error_ <- norm(V__ - self$Omega %*% self$D_w %*% X_,"F")
+          new_lambda_error <- self$lambda_ * self$hinge(X_ %*% self$R)
+          new_beta_error <- self$beta_ * self$hinge(t(self$S) %*% self$Omega)
+          new_total_error <- new_error_ + new_lambda_error + new_beta_error
           
-          if (new_error < error_) {
+          log_vec["total_error"] <- new_total_error
+          log_vec["lambda_error"] <- new_lambda_error
+          log_vec["beta_error"] <- new_beta_error
+          log_vec["deconv_error_X"] <- new_error_
+          
+          
+          if (new_total_error < total_error) {
+            n <- n+1
             self$X <- X_
             self$H <- self$X %*% self$R
+            new_error_X <- new_error_
+            
+            log_vec["rejected"] <- as.integer(FALSE)
+            if (self$is_logging) {
+              self$logs <- rbind(self$logs,log_vec)
+              self$logs_X <- rbind(self$logs_X,
+                                   c(self$j,ncol(X_),nrow(X_),as.vector(X_)))
+              self$logs_Omega <- rbind(self$logs_Omega,
+                                       c(self$j,ncol(self$Omega),nrow(self$Omega),as.vector(self$Omega)))
+            }
+            
+            #UPDATE OMEGA
+            
+            for (iter_ in 1:self$search_iterations_) {
+              ct <- sample(self$cell_types, 1)
+              self$j <- self$j + 1
+              o <- rnorm((self$k-1), mean = 0, sd = 1)
+              u <- runif(1,0,1)^(1/(self$k-1))
+              tmp_o <- (1/sqrt(sum(o^2)))
+              changes_ <- ((self$radius_Omega * u) / tmp_o) * o
+              Omega_[,ct]<- Omega_[,ct] + c(0,changes_)
+              D_w_ <- diag(solve(Omega_,c(sqrt(M),rep(0,self$cell_types-1))))
+              if (any(D_w_ < 0)) {
+                constraints_ <- F
+                next
+              }
+              
+              log_vec <- c(1:length(col_names))
+              names(log_vec) <- col_names
+              log_vec["idx"] <- self$j
+              log_vec["i"] <- i
+              log_vec["iter_"] <- iter_
+              log_vec["constraint"] <- as.integer(TRUE)
+              log_vec["prev_total_error"] <- total_error
+              log_vec["total_error"] <- NA
+              log_vec["lambda_error"] <- NA
+              log_vec["beta_error"] <- NA
+              log_vec["deconv_error_X"] <- NA
+              log_vec["deconv_error_Omega"] <- NA
+              log_vec["rejected"] <- as.integer(TRUE)
+              log_vec["changed_ct"] <- ct
+              log_vec["is_X"] <- 0
+              log_vec["is_Omega"] <- 1
+              
+              new_W__ <- t(self$S) %*% Omega_
+              new_error_ <- norm(V__ - Omega_ %*% D_w_ %*% self$X,"F")
+              new_lambda_error <- self$lambda_ * self$hinge(self$X %*% self$R)
+              new_beta_error <- self$beta_ * self$hinge(t(self$S) %*% Omega_)
+              new_total_error <- new_error_ + new_lambda_error + new_beta_error
+              
+              log_vec["total_error"] <- new_total_error
+              log_vec["lambda_error"] <- new_lambda_error
+              log_vec["beta_error"] <- new_beta_error
+              log_vec["deconv_error_Omega"] <- new_error_
+              
+              if (new_total_error < total_error) {
+                #print(paste("Update Omega",new_total_error))
+                m <- m+1
+                total_error <- new_total_error
+                self$Omega <- Omega_
+                self$W__ <- new_W__
+                self$D_w <- D_w_
+                new_error_Omega <- new_error_
+                log_vec["rejected"] <- as.integer(FALSE)
+                if (self$is_logging) {
+                  self$logs <- rbind(self$logs,log_vec)
+                  self$logs_X <- rbind(self$logs_X,
+                                       c(self$j,ncol(self$X),nrow(self$X),as.vector(self$X)))
+                  self$logs_Omega <- rbind(self$logs_Omega,
+                                           c(self$j,ncol(Omega_),nrow(Omega_),as.vector(Omega_)))
+                }
+                break
+              }
+              if (self$is_logging) {
+                self$logs <- rbind(self$logs,log_vec)
+                self$logs_X <- rbind(self$logs_X,
+                                     c(self$j,ncol(self$X),nrow(self$X),as.vector(self$X)))
+                self$logs_Omega <- rbind(self$logs_Omega,
+                                         c(self$j,ncol(Omega_),nrow(Omega_),as.vector(Omega_)))
+              }
+            }
+            
             break
           }
+          if (self$is_logging) {
+            self$logs <- rbind(self$logs,log_vec)
+            self$logs_X <- rbind(self$logs_X,
+                                 c(self$j,ncol(X_),nrow(X_),as.vector(X_)))
+            self$logs_Omega <- rbind(self$logs_Omega,
+                                     c(self$j,ncol(self$Omega),nrow(self$Omega),as.vector(self$Omega)))
+          }
         }
-        if(constraints_) {
-          gradW_ <- (self$filtered_dataset - self$W%*%self$H) %*% t(self$H)
-          lrW <- self$W / (self$W %*% self$H %*% t(self$H))
-          self$W <- self$W + lrW * gradW_
-        }
-        error_ <- norm(self$filtered_dataset - self$W%*%self$H,"F")
-        #error_ <- self$l2_norm(t(self$filtered_dataset - self$W%*%self$H))
-        self$errors_[i+1,] <- c(i+1,error_)
-        #self$D <- solve(t(self$X),self$A)
-        self$D <- t(solve(t(self$X %*% t(self$X)),self$unity))
-        self$full_proportions <- diag(self$D[1,]) %*% self$H
+        
+        
+        
+        
+        error_ <- norm(V__ - self$Omega %*% self$D_w %*% self$X,"F")
+        lambda_error <- self$lambda_ * self$hinge(self$X %*% self$R)
+        beta_error <- self$beta_ * self$hinge(t(self$S) %*% self$Omega)
+        total_error <- error_ + lambda_error + beta_error
+        
+
+        self$errors_[i+1,] <- c(i+1,total_error)
+        self$deconv_errors[i+1,] <- c(i+1,error_)
+        self$deconv_errors_X[i+1,] <- c(i+1,new_error_X)
+        self$deconv_errors_Omega[i+1,] <- c(i+1,new_error_Omega)
+        self$lambda_errors[i+1,] <- c(i+1,lambda_error)
+        self$beta_errors[i+1,] <- c(i+1,beta_error)
+        
+        self$D_h <- t(solve(t(self$X %*% t(self$X)),self$unity))
+        self$full_proportions <- diag(self$D_h[1,]) %*% self$H
       }
+      print(n)
+      print(m)
     },
     
     getEpsilonApproximation = function(min_=-5,max_=-2,values_=6) {
@@ -648,68 +933,6 @@ MonteCarloLinseed <- R6Class(
       })
       metrics <- sum(genes_list_)
       metrics  
-    },
-    
-    updateR = function(outer_loops = 10, tries_ = 10, epsilon_ = 0.00001, option_R = 'R',
-                       alpha = 0.1) {
-      
-      init_R <- get(option_R,self)
-      init_metric <- self$getLinearMetric(init_R, epsilon_)
-      self$step_R <- init_R
-      self$step_metric <- init_metric
-      self$metric_changes <- c(self$step_metric)
-      components <- 2:self$cell_types 
-      N <- self$samples
-      pb <- progress_bar$new(
-        format = "Updating R [:bar] :percent eta: :eta",
-        total = outer_loops, clear = FALSE, width= 60)
-      
-      for (l in 1:outer_loops) {
-        pb$tick()
-        for (i in components) {
-          for (j in 1:N) {
-            for (try_ in 1:tries_) {
-              tmp_R <- t(self$step_R)
-              alpha_ <- runif(1,min=-alpha,max=alpha)
-              
-              #update selected j element on i component 
-              tmp_R[j,i] <- tmp_R[j,i] * (1+alpha_)
-              sum_const_i_ <- tmp_R[,i] %*% tmp_R[,i]
-              tmp_R[,i] <- tmp_R[,i]/c(sqrt(sum_const_i_))
-              
-              #update rest of the R components (Gram-Schmidt)
-              prev_components <- c(i)
-              for (k in components[-(i-1)]) {
-                sum_projection <- matrix(0,nrow=1,ncol=N)
-                for (comp_ in prev_components) {
-                  sum_projection <- sum_projection + Proj(t(self$step_R)[,k], tmp_R[,comp_])
-                }
-                tmp_R[,k] <- t(self$step_R)[,k] - sum_projection
-                prev_components <- c(prev_components,k)
-                #tmp_R[k,] <- (self$step_R[i,]*self$step_R[k,]) / tmp_R[i,]
-                #sum_const_k_ <- tmp_R[k,] %*% tmp_R[k,]
-                #tmp_R[k,] <- tmp_R[k,]/c(sqrt(sum_const_k_))
-              }
-              tmp_R <- tmp_R %*% diag(1 / len(tmp_R))
-              tmp_R  <- t(tmp_R)
-              #update R1
-              a <- apply(tmp_R,1,sum)[-1]
-              a_1 <- sqrt(N - sum(a^2))
-              tmp_R[1,] <- (matrix(1,nrow=1,ncol=N) - a%*%tmp_R[-1,]) / a_1
-              tmp_R <- t(t(tmp_R) %*% diag(1 / len(t(tmp_R))))
-              
-              #check metrics value
-              tmp_metrics <- self$getLinearMetric(tmp_R, epsilon_)
-              if (tmp_metrics > self$step_metric) {
-                self$step_metric <- tmp_metrics
-                self$metric_changes <- c(self$metric_changes,self$step_metric)
-                self$step_R <- tmp_R
-                break
-              }
-            }
-          }
-        }
-      }
     }
   )
 )
