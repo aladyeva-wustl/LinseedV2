@@ -267,7 +267,7 @@ SinkhornLinseed <- R6Class(
 
       self$B <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
       self$new_samples_points <- t(self$S %*% self$V_column)
-    }
+    },
     
     selectInit = function() {
       constraints_ = F
