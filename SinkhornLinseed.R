@@ -281,27 +281,20 @@ SinkhornLinseed <- R6Class(
         cnt_ <- cnt_ + 1
         if (cnt_ > limit_) {
           self$init_X <- NULL
-          stop(paste0("Couldn't find initial points. Negative coefficients: ",cnt_coefficients))
+          stop(paste0("Couldn't find initial points"))
         }
         
-        self$init_proportions_rows <- sample(nrow(self$V_), select_k)
-        self$init_proportions_ <- self$V_[self$init_proportions_rows, ]
+        self$init_proportions_rows <- sample(nrow(self$V_row), select_k)
+        self$init_proportions_ <- self$V_row[self$init_proportions_rows, ]
         self$init_X <- self$init_proportions_ %*% t(self$R)
         rownames(self$init_X) <- paste('Cell type', 1:self$cell_types)
         
-        out <- tryCatch((ginv(t(self$init_X)) %*% self$A %*% t(self$unity))[,1], error = function(e) e)
+        out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
         if (!any(class(out) == "error")) {
-          if (all(out > 0)) {
             constraints_ <- T
             self$init_H_ <- self$init_X %*% self$R
-            self$init_W_ <- t(self$fcnnls_coefs(t(self$init_H_), t(self$V_)))
-            self$init_W_ <- self$init_W_/rowSums(self$init_W_)
-            
             self$init_D_h <- diag(out)
-            self$init_Omega_ <- self$S %*% self$init_W_
-          } else {
-            cnt_coefficients <- cnt_coefficients + 1
-          }
+            self$init_Omega_ <- self$sigma%*%ginv(self$init_D_h%*%self$init_X)
         }
       }
     },
