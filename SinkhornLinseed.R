@@ -29,8 +29,6 @@ SinkhornLinseed <- R6Class(
     inner_iterations_X = NULL,
     inner_iterations_Omega = NULL,
     global_iterations = NULL,
-    tries_D_h = NULL,
-    tries_D_w = NULL,
     new_points = NULL,
     new_samples_points = NULL,
     orig_full_proportions = NULL,
@@ -40,11 +38,8 @@ SinkhornLinseed <- R6Class(
     data = NULL,
     V_row = NULL,
     V_column = NULL,
-    scale_D_h = NULL,
-    scale_D_w = NULL,
-    scale_left = NULL,
-    scale_right = NULL,
-    scale_coef = NULL,
+    M = NULL,
+    N = NULL,
     Sigma = NULL,
     R = NULL,
     S = NULL,
@@ -56,12 +51,16 @@ SinkhornLinseed <- R6Class(
     H_ = NULL,
     D_h = NULL,
     D_w = NULL,
+    D = NULL,
+    D_v_row = NULL,
+    D_v_column = NULL,
     init_D_w = NULL,
     init_D_h = NULL,
+    init_D = NULL,
     init_X = NULL,
     init_H_ = NULL,
     init_W_ = NULL,
-    init_Omega_ = NULL,
+    init_Omega = NULL,
     init_proportions_rows = NULL,
     init_proportions_ = NULL,
     unity = NULL,
@@ -113,9 +112,7 @@ SinkhornLinseed <- R6Class(
                           coef_hinge_W = 10,
                           inner_iterations_X = 1000,
                           inner_iterations_Omega = 1000,
-                          global_iterations = 10,
-                          tries_D_h = 150,
-                          tries_D_w = 150) {
+                          global_iterations = 10) {
       self$filtered_samples <- filtered_samples
       self$dataset <- dataset
       self$path_ <- path
@@ -136,8 +133,6 @@ SinkhornLinseed <- R6Class(
       self$inner_iterations_X <- inner_iterations_X
       self$inner_iterations_Omega <- inner_iterations_Omega
       self$global_iterations <- global_iterations
-      self$tries_D_h <- tries_D_h
-      self$tries_D_w <- tries_D_w
       
       if (!is.null(data)) {
         input_data <- self$data
@@ -165,6 +160,9 @@ SinkhornLinseed <- R6Class(
       
       self$samples <- ncol(self$filtered_dataset)
       self$metric <- metric
+
+      self$N <- ncol(self$filtered_dataset)
+      self$M <- nrow(self$filtered_dataset)
       
     },
     
@@ -203,6 +201,7 @@ SinkhornLinseed <- R6Class(
       }
       self$top_genes <- names(sort(dataset_,decreasing = T)[1:genes_number])
       self$filtered_dataset <- self$filtered_dataset[self$top_genes,]
+      self$M <- nrow(self$filtered_dataset)
     },
     
     scaleDataset = function(iterations = 10000){
@@ -294,7 +293,8 @@ SinkhornLinseed <- R6Class(
             constraints_ <- T
             self$init_H_ <- self$init_X %*% self$R
             self$init_D_h <- diag(out)
-            self$init_Omega_ <- self$sigma%*%ginv(self$init_D_h%*%self$init_X)
+            self$init_D <- self$init_D_h * (self$M/self$N)
+            self$init_Omega <- self$Sigma%*%ginv(self$init_D%*%self$init_X)
         }
       }
     },
@@ -305,25 +305,22 @@ SinkhornLinseed <- R6Class(
       }
       new_init_X <- self$init_X
       new_init_H <- self$init_H_
-      new_init_W <- self$init_W_
       new_D_h <- self$init_D_h
-      new_init_Omega_ <- self$init_Omega_
+      new_D <- self$init_D
+      new_init_Omega <- self$init_Omega
+
       V_row_ <- self$S %*% self$V_row %*% t(self$R)
-      V_column_ <- self$S %*% self$V_column %*% t(self$R)
       
-      init_error <- norm(V__ - self$init_Omega_ %*% self$init_X,"F")
+      init_error <- norm(V_row_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
       lambda_error <- self$coef_hinge_H * self$hinge(self$init_X %*% self$R) 
-      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega_) 
-      D_h_error <- self$coef_pos_D_h * self$hinge(self$init_D_h)
-      #D_w_error <- self$coef_pos_D_w * self$hinge(self$init_D_w)
-      total_init_error <- init_error + lambda_error + beta_error + D_h_error #+ D_w_error
+      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega_)
+      total_init_error <- init_error + lambda_error + beta_error
       
       print(paste("Init error:",total_init_error))
       all_selections <- self$init_proportions_rows
       new_init_proportions_rows <- self$init_proportions_rows
       
       for (itr_ in 1:iterations_){
-        #change_point <- sample(self$cell_types,1)
         for (change_point in 1:self$cell_types) {
           print(paste(itr_,change_point))
           left_points <- self$V_[-all_selections, ]
@@ -332,57 +329,46 @@ SinkhornLinseed <- R6Class(
             try_points <- new_init_proportions_rows
             try_points[change_point] <- elem
             
-            init_X <- self$V_[try_points,] %*% t(self$R)
-            if (all(init_X %*% self$R > 0)) {
-              out <- tryCatch((ginv(t(init_X)) %*% self$A %*% t(self$unity))[,1], error = function(e) e)
+            X <- self$V_row[try_points,] %*% t(self$R)
+            out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
               if (!any(class(out) == "error")) {
-                if (all(out > 0)) {
-                  init_H <- init_X %*% self$R
+                  H <- X %*% self$R
                   D_h <- diag(as.vector(out))
-                  init_W <- t(self$fcnnls_coefs(t(init_H), t(self$V_)))
-                  init_W <- init_W/rowSums(init_W)
-                  init_Omega_ <- self$S %*% init_W
+                  D <- D_h * (self$M/self$N)
+                  Omega <- self$Sigma %*% ginv(D %*% X)
                   
-                  new_error <- norm(V__ - init_Omega_ %*% init_X,"F")
-                  new_lambda_error <- self$coef_hinge_H * self$hinge(init_X %*% self$R) 
-                  new_beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% init_Omega_) 
-                  new_D_h_error <- self$coef_pos_D_h * self$hinge(D_h)
-                  #new_D_w_error <- self$coef_pos_D_w * self$hinge(D_w)
-                  new_total_error <- new_error + new_lambda_error + new_beta_error + new_D_h_error# + new_D_w_error
+                  new_error <- norm(V_row_ - Omega %*% D %*% X,"F")
+                  new_lambda_error <- self$coef_hinge_H * self$hinge(H) 
+                  new_beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% Omega) 
+                  new_total_error <- new_error + new_lambda_error + new_beta_error
                   
                   if (new_total_error < total_init_error) {
                     print(new_total_error)
                     
-                    new_init_X <- init_X
-                    new_init_H <- init_H
-                    new_init_W_ <- init_W_
-                    new_D_w <- D_w
+                    new_init_X <- X
+                    new_init_H <- H
                     new_D_h <- D_h
-                    new_init_W__ <- init_W__
-                    new_init_Omega_ <- init_Omega_
+                    new_D <- D
+                    new_init_Omega <- Omega
                     
                     total_init_error <- new_total_error
                     all_selections <- c(all_selections,elem)
                     new_init_proportions_rows <- try_points
                     break 
                   }
-                }
-              }
             }
           }
         }
       }
       self$optim_init_proportions_rows <- new_init_proportions_rows
-      self$optim_init_proportions_ <- self$V_[try_points,]
+      self$optim_init_proportions_ <- self$V_row[try_points,]
       
       self$init_X <- new_init_X
-      self$init_W_ <- new_init_W
       self$init_H_ <- new_init_H
       
-      self$init_D_w <- new_D_w
       self$init_D_h <- new_D_h
-      self$init_W__ <- new_init_W__
-      self$init_Omega_ <- new_init_Omega_
+      self$init_D <- new_D
+      self$init_Omega <- new_init_Omega
       
     },
     
@@ -435,21 +421,6 @@ SinkhornLinseed <- R6Class(
       }
       res[1,] <- 0
       res
-      
-      #m <- nrow(W)
-      #n <- ncol(W)
-      #res <- matrix(0,nrow=n,ncol=n)
-      #for (i in 1:m) {
-      #  for (j in 1:n) {
-      #    if (W[i,j] < 0) {
-      #      for (c in 1:n) {
-      #        res[c,i] <- res[c,i] + S[c,j]
-      #      }
-      #    }
-      #  }
-      #}
-      #res[1,] <- 0
-      #-res
     },
     
     hinge_der = function(X,D) {
