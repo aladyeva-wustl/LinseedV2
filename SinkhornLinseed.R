@@ -275,7 +275,7 @@ SinkhornLinseed <- R6Class(
       cnt_proportions <- 0
       cnt_coefficients <- 0
       select_k <- self$cell_types
-      limit_ <- select_k*nrow(self$V_)
+      limit_ <- select_k*nrow(self$V_row)
       while (!constraints_) {
         cnt_ <- cnt_ + 1
         if (cnt_ > limit_) {
