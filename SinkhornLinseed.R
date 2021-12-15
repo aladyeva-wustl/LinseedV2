@@ -258,7 +258,7 @@ SinkhornLinseed <- R6Class(
       svd_ <- svd(self$V_row)
       self$S <- t(svd_$u[,1:k])
       self$R <- t(svd_$v[,1:k])
-      self$Signa <- diag(svd_$d[1:k])
+      self$Sigma <- diag(svd_$d[1:k])
       self$S[1,] <- -self$S[1,]
       self$R[1,] <- -self$R[1,]
 
