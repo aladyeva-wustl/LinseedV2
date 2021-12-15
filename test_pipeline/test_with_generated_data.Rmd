@@ -1,0 +1,25 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+source("../generate_dataset.R")
+```
+
+##Prepare data
+```{r}
+#cell_types <- 3
+#k <- 3
+#noiseDeviation <- 0
+#sampleLogSd <- 4
+#sampleLogMean <- 3
+#test_data <- generateExample(40,10000,cell_types,sampleLogSd,sampleLogMean,noiseDeviation,k)
+#save(test_data, file="data/test_data_3_ct_no_noise.Robj")
+```
+
+```{r}
+load(file="data/test_data_3_ct_no_noise.Robj")
+```
+
+
