@@ -264,10 +264,10 @@ SinkhornLinseed <- R6Class(
       self$R[1,] <- -self$R[1,]
 
       self$A <- matrix(apply(self$R,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_points <- self$V_ %*% t(self$R)
+      self$new_points <- self$V_row %*% t(self$R)
 
       self$B <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_samples_points <- t(self$S %*% t(V_col))
+      self$new_samples_points <- t(self$S %*% self$V_column)
     }
     
     selectInit = function() {
