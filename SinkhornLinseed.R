@@ -345,9 +345,7 @@ SinkhornLinseed <- R6Class(
             X <- self$V_row[try_points,] %*% t(self$R)
             out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
               if (!any(class(out) == "error")) {
-                if (all(out<0)) {
-                  continue
-                }
+                
                   H <- X %*% self$R
                   D_h <- diag(as.vector(out))
                   D <- D_h * (self$M/self$N)
@@ -358,6 +356,13 @@ SinkhornLinseed <- R6Class(
                   new_beta_error <- self$hinge(t(self$S) %*% Omega) 
                   new_d_error <- self$hinge(D)
                   new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
+
+                  genes_ <- rownames(self$filtered_dataset[try_points,])
+                  self$inits_statistics <- rbind(self$inits_statistics,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error))
+
+                  if (all(out<0)) {
+                    continue
+                  }
                   
                   if (new_total_error < total_init_error) {
                     print(new_total_error)
@@ -372,8 +377,7 @@ SinkhornLinseed <- R6Class(
                     all_selections <- c(all_selections,elem)
                     new_init_proportions_rows <- try_points
 
-                    genes_ <- rownames(self$filtered_dataset[new_init_proportions_rows,])
-                    self$inits_statistics <- rbind(self$inits_statistics,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error))
+                    
                     break 
                   }
             }
