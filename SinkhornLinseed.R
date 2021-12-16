@@ -58,12 +58,12 @@ SinkhornLinseed <- R6Class(
     init_D_h = NULL,
     init_D = NULL,
     init_X = NULL,
-    init_H_ = NULL,
-    init_W_ = NULL,
+    init_H = NULL,
     init_Omega = NULL,
     init_proportions_rows = NULL,
     init_proportions_ = NULL,
     unity = NULL,
+    inits_statistics = NULL,
     errors_statistics = NULL,
     optim_init_proportions_rows = NULL,
     optim_init_proportions_ = NULL,
@@ -296,7 +296,7 @@ SinkhornLinseed <- R6Class(
         out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
         if (!any(class(out) == "error")) {
             constraints_ <- T
-            self$init_H_ <- self$init_X %*% self$R
+            self$init_H <- self$init_X %*% self$R
             self$init_D_h <- diag(out)
             self$init_D <- self$init_D_h * (self$M/self$N)
             self$init_Omega <- self$Sigma%*%ginv(self$init_D%*%self$init_X)
@@ -308,8 +308,10 @@ SinkhornLinseed <- R6Class(
       if (is.null(self$init_X)) {
         self$selectInit()
       }
+      self$inits_statistics <- NULL
+
       new_init_X <- self$init_X
-      new_init_H <- self$init_H_
+      new_init_H <- self$init_H
       new_D_h <- self$init_D_h
       new_D <- self$init_D
       new_init_Omega <- self$init_Omega
@@ -317,13 +319,17 @@ SinkhornLinseed <- R6Class(
       V_row_ <- self$S %*% self$V_row %*% t(self$R)
       
       init_error <- norm(V_row_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
-      lambda_error <- self$coef_hinge_H * self$hinge(self$init_X %*% self$R) 
-      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega)
-      total_init_error <- init_error + lambda_error + beta_error
+      lambda_error <- self$hinge(self$init_H) 
+      beta_error <- self$hinge(t(self$S) %*% self$init_Omega)
+      d_error <- self$hinge(self$init_D)
+      total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
       
       print(paste("Init error:",total_init_error))
       all_selections <- self$init_proportions_rows
       new_init_proportions_rows <- self$init_proportions_rows
+
+      genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
+      self$inits_statistics <- rbind(self$inits_statistics,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error))
       
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -343,9 +349,10 @@ SinkhornLinseed <- R6Class(
                   Omega <- self$Sigma %*% ginv(D %*% X)
                   
                   new_error <- norm(V_row_ - Omega %*% D %*% X,"F")
-                  new_lambda_error <- self$coef_hinge_H * self$hinge(H) 
-                  new_beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% Omega) 
-                  new_total_error <- new_error + new_lambda_error + new_beta_error
+                  new_lambda_error <- self$hinge(H) 
+                  new_beta_error <- self$hinge(t(self$S) %*% Omega) 
+                  new_d_error <- self$hinge(D)
+                  new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
                   
                   if (new_total_error < total_init_error) {
                     print(new_total_error)
@@ -359,6 +366,9 @@ SinkhornLinseed <- R6Class(
                     total_init_error <- new_total_error
                     all_selections <- c(all_selections,elem)
                     new_init_proportions_rows <- try_points
+
+                    genes_ <- rownames(self$filtered_dataset[new_init_proportions_rows,])
+                    self$inits_statistics <- rbind(self$inits_statistics,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error))
                     break 
                   }
             }
@@ -369,7 +379,7 @@ SinkhornLinseed <- R6Class(
       self$optim_init_proportions_ <- self$V_row[try_points,]
       
       self$init_X <- new_init_X
-      self$init_H_ <- new_init_H
+      self$init_H <- new_init_H
       
       self$init_D_h <- new_D_h
       self$init_D <- new_D
