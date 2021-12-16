@@ -295,11 +295,13 @@ SinkhornLinseed <- R6Class(
         
         out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
         if (!any(class(out) == "error")) {
+          if (all(out>=0)) {
             constraints_ <- T
             self$init_H <- self$init_X %*% self$R
             self$init_D_h <- diag(out)
             self$init_D <- self$init_D_h * (self$M/self$N)
             self$init_Omega <- self$Sigma%*%ginv(self$init_D%*%self$init_X)
+          }
         }
       }
     },
@@ -343,6 +345,9 @@ SinkhornLinseed <- R6Class(
             X <- self$V_row[try_points,] %*% t(self$R)
             out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
               if (!any(class(out) == "error")) {
+                if (all(out<0)) {
+                  continue
+                }
                   H <- X %*% self$R
                   D_h <- diag(as.vector(out))
                   D <- D_h * (self$M/self$N)
