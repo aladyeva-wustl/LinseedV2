@@ -313,7 +313,7 @@ SinkhornLinseed <- R6Class(
       
       init_error <- norm(V_row_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
       lambda_error <- self$coef_hinge_H * self$hinge(self$init_X %*% self$R) 
-      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega_)
+      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega)
       total_init_error <- init_error + lambda_error + beta_error
       
       print(paste("Init error:",total_init_error))
