@@ -210,11 +210,16 @@ SinkhornLinseed <- R6Class(
       M <- nrow(V)
       V_row <- V
       V_column <- V
+      pb <- progress_bar$new(
+        format = "Scaling dataset [:bar] :percent eta: :eta",
+        total = iterations, clear = FALSE, width= 60)
+
       for (i in 1:iterations) {
         self$D_v_row <- diag(1/rowSums(V_column))
         V_row <- self$D_v_row %*% V_column
         self$D_v_column <- diag(1/rowSums(t(V_row)))
         V_column <- V_row %*% self$D_v_column
+        pb$tick()
       }
       self$V_row <- V_row
       self$V_column <- V_column
