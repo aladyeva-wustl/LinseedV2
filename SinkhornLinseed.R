@@ -328,7 +328,7 @@ SinkhornLinseed <- R6Class(
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
           print(paste(itr_,change_point))
-          left_points <- self$V_[-all_selections, ]
+          left_points <- self$V_row[-all_selections, ]
           shuffle_set <- sample(nrow(left_points), nrow(left_points))
           for (elem in shuffle_set) {
             try_points <- new_init_proportions_rows
