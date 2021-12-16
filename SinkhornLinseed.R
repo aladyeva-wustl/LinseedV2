@@ -343,7 +343,7 @@ SinkhornLinseed <- R6Class(
             try_points[change_point] <- elem
             
             X <- self$V_row[try_points,] %*% t(self$R)
-            out <- tryCatch(solve(t(ßX),self$A)[,1], error = function(e) e)
+            out <- tryCatch(solve(t(X),self$A)[,1], error = function(e) e)
               if (!any(class(out) == "error")) {
                 
                   H <- X %*% self$R
