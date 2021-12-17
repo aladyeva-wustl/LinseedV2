@@ -369,7 +369,7 @@ SinkhornLinseed <- R6Class(
       new_init_proportions_rows <- self$init_proportions_rows
 
       genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
-      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error,all(seelf$init_D_h>0)))
+      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error,all(self$init_D_h>0)))
       
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
