@@ -465,7 +465,7 @@ SinkhornLinseed <- R6Class(
         for (change_point in 1:self$cell_types) {
           print(paste(itr_,change_point))
           left_points <- self$V_column[,-all_selections]
-          shuffle_set <- sample(nrow(left_points), nrow(left_points))
+          shuffle_set <- sample(ncol(left_points), ncol(left_points))
           for (elem in shuffle_set) {
             try_points <- new_init_basis_cols
             try_points[change_point] <- elem
