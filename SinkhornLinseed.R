@@ -469,7 +469,7 @@ SinkhornLinseed <- R6Class(
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
 
       for (itr_ in 1:iterations_){
-          print(paste(itr_,change_point))
+          print(itr_)
           left_points <- self$V_column[,-all_selections]
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
           while(length(shuffle_set) >= self$cell_types) {
