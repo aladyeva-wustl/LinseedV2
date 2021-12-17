@@ -399,7 +399,7 @@ SinkhornLinseed <- R6Class(
                   self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,(new_total_error < total_init_error)))
 
                   if (all(out<0)) {
-                    continue
+                    next
                   }
                   
                   if (new_total_error < total_init_error) {
@@ -490,7 +490,7 @@ SinkhornLinseed <- R6Class(
                   (new_total_error < total_init_error)))
 
                   if (all(out<0)) {
-                    continue
+                    next
                   }
                   
                   if (new_total_error < total_init_error) {
