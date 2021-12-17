@@ -438,7 +438,7 @@ SinkhornLinseed <- R6Class(
       if (is.null(self$init_Omega)) {
         self$selectInitOmega()
       }
-      self$inits_statistics_X <- NULL
+      self$inits_statistics_Omega <- NULL
 
       new_init_X <- self$init_X
       new_init_W <- self$init_W
