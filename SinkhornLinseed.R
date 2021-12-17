@@ -72,10 +72,6 @@ SinkhornLinseed <- R6Class(
     inits_statistics_X = NULL,
     inits_statistics_Omega = NULL,
     errors_statistics = NULL,
-    optim_init_proportions_rows = NULL,
-    optim_init_proportions_ = NULL,
-    optim_init_basis_cols = NULL,
-    optim_init_basis_ = NULL,
     genes_mean = NULL,
     genes_sd = NULL,
     genes_mad = NULL,
@@ -427,8 +423,6 @@ SinkhornLinseed <- R6Class(
             }
         }
       }
-      self$optim_init_proportions_rows <- new_init_proportions_rows
-      self$optim_init_proportions_ <- self$V_row[try_points,]
       
       self$init_X <- new_init_X
       self$init_H <- new_init_H
@@ -439,7 +433,7 @@ SinkhornLinseed <- R6Class(
       
     },
 
-    optimizeInitBasis = function(iterations_=5) {
+    optimizeInitBasis = function(iterations_=(self$N^2)/self$cell_types) {
       if (is.null(self$init_Omega)) {
         self$selectInitOmega()
       }
@@ -460,7 +454,6 @@ SinkhornLinseed <- R6Class(
       total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
       
       print(paste("Init error:", total_init_error))
-      all_selections <- self$init_basis_cols
 
       samples_ <- colnames(self$filtered_dataset[,self$init_basis_cols])
       neg_proportions <- sum(self$init_X %*% self$R < -1e-10) / (self$N*self$cell_types)
@@ -468,12 +461,12 @@ SinkhornLinseed <- R6Class(
       self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
 
+      all_points <- simulation_3_no_noise$V_column
       for (itr_ in 1:iterations_){
           print(itr_)
-          left_points <- self$V_column[,-all_selections]
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
           while(length(shuffle_set) >= self$cell_types) {
-            try_points <- shuffle_set[1:self$cell_types]
+            try_points <- sample(shuffle_set,self$cell_types)
             
             Omega <- self$S %*% self$V_column[,try_points]
             out <- tryCatch(solve(t(Omega),self$B)[,1], error = function(e) e)
@@ -496,9 +489,9 @@ SinkhornLinseed <- R6Class(
                   self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,new_error,new_lambda_error,
                   new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
                   (new_total_error < total_init_error)))
-
+                  shuffle_set <- shuffle_set[-which(shuffle_set %in% try_points)]
+                  
                   if (all(out<0)) {
-                    shuffle_set <- shuffle_set[(self$cell_types+1):length(shuffle_set)]
                     next
                   }
                   
@@ -512,16 +505,12 @@ SinkhornLinseed <- R6Class(
                     new_init_Omega <- Omega
                     
                     total_init_error <- new_total_error
-                    all_selections <- c(all_selections,try_points)
                     
                     break 
                   }
-                  shuffle_set <- shuffle_set[(self$cell_types+1):length(shuffle_set)]
             }
           }
       }
-
-      self$optim_init_basis_ <- self$V_column[,try_points]
       
       self$init_X <- new_init_X
       self$init_W <- new_init_W
