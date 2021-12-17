@@ -452,9 +452,9 @@ SinkhornLinseed <- R6Class(
       new_D <- self$init_D
       new_init_Omega <- self$init_Omega
 
-      V_column_ <- self$S %*% self$V_column %*% t(self$R)
+      V_row_ <- self$S %*% self$V_row %*% t(self$R)
 
-      init_error <- norm(V_column_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
+      init_error <- norm(V_row_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
       lambda_error <- self$hinge(new_init_X %*% self$R)
       beta_error <- self$hinge(new_init_W)
       d_error <- self$hinge(self$init_D)
@@ -488,7 +488,7 @@ SinkhornLinseed <- R6Class(
                   D <- D_w
                   X <- ginv(Omega %*% D) %*% self$Sigma
                   
-                  new_error <- norm(V_column_ - Omega %*% D %*% X,"F")
+                  new_error <- norm(V_row_ - Omega %*% D %*% X,"F")
                   new_lambda_error <- self$hinge(X %*% self$R) 
                   new_beta_error <- self$hinge(W) 
                   new_d_error <- self$hinge(D)
