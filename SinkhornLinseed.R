@@ -375,6 +375,7 @@ SinkhornLinseed <- R6Class(
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
       
       for (itr_ in 1:iterations_){
+                for (change_point in 1:self$cell_types) {
           left_points <- self$V_row[-all_selections, ]
           shuffle_set <- sample(nrow(left_points), nrow(left_points))
           for (elem in shuffle_set) {
@@ -422,6 +423,7 @@ SinkhornLinseed <- R6Class(
                     
                     break 
                   }
+              }
             }
         }
       }
@@ -467,7 +469,6 @@ SinkhornLinseed <- R6Class(
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
 
       for (itr_ in 1:iterations_){
-        for (change_point in 1:self$cell_types) {
           print(paste(itr_,change_point))
           left_points <- self$V_column[,-all_selections]
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
@@ -517,7 +518,6 @@ SinkhornLinseed <- R6Class(
                   shuffle_set <- shuffle_set[(self$cell_types+1):length(shuffle_set)]
             }
           }
-        }
       }
 
       self$optim_init_basis_cols <- new_init_basis_cols
