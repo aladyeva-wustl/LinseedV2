@@ -474,7 +474,7 @@ SinkhornLinseed <- R6Class(
             try_points <- sample(shuffle_set,self$cell_types)
             
             Omega <- self$S %*% self$V_column[,try_points]
-            out <- tryCatch(solve(t(Omega),self$B)[,1], error = function(e) e)
+            out <- tryCatch(solve(Omega,self$B)[,1], error = function(e) e)
               if (!any(class(out) == "error")) {
                 
                   W <- t(self$S) %*% Omega
