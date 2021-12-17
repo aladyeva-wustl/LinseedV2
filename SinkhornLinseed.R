@@ -375,8 +375,6 @@ SinkhornLinseed <- R6Class(
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
       
       for (itr_ in 1:iterations_){
-        for (change_point in 1:self$cell_types) {
-          print(paste(itr_,change_point))
           left_points <- self$V_row[-all_selections, ]
           shuffle_set <- sample(nrow(left_points), nrow(left_points))
           for (elem in shuffle_set) {
@@ -425,7 +423,6 @@ SinkhornLinseed <- R6Class(
                     break 
                   }
             }
-          }
         }
       }
       self$optim_init_proportions_rows <- new_init_proportions_rows
@@ -462,7 +459,6 @@ SinkhornLinseed <- R6Class(
       
       print(paste("Init error:", total_init_error))
       all_selections <- self$init_basis_cols
-      new_init_basis_cols <- self$init_basis_cols
 
       samples_ <- colnames(self$filtered_dataset[,self$init_basis_cols])
       neg_proportions <- sum(self$init_X %*% self$R < -1e-10) / (self$N*self$cell_types)
@@ -475,9 +471,8 @@ SinkhornLinseed <- R6Class(
           print(paste(itr_,change_point))
           left_points <- self$V_column[,-all_selections]
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
-          for (elem in shuffle_set) {
-            try_points <- new_init_basis_cols
-            try_points[change_point] <- elem
+          while(length(shuffle_set) >= self$cell_types) {
+            try_points <- shuffle_set[1:self$cell_types]
             
             Omega <- self$S %*% self$V_column[,try_points]
             out <- tryCatch(solve(t(Omega),self$B)[,1], error = function(e) e)
@@ -515,11 +510,11 @@ SinkhornLinseed <- R6Class(
                     new_init_Omega <- Omega
                     
                     total_init_error <- new_total_error
-                    all_selections <- c(all_selections,elem)
-                    new_init_basis_cols <- try_points
+                    all_selections <- c(all_selections,try_points)
                     
                     break 
                   }
+                  shuffle_set <- shuffle_set[(self$cell_types+1):length(shuffle_set)]
             }
           }
         }
