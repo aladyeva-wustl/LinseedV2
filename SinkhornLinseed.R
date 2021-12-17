@@ -49,21 +49,28 @@ SinkhornLinseed <- R6Class(
     Omega = NULL,
     W_ = NULL,
     H_ = NULL,
+
     D_h = NULL,
     D_w = NULL,
     D = NULL,
     D_v_row = NULL,
     D_v_column = NULL,
+
     init_D_w = NULL,
     init_D_h = NULL,
     init_D = NULL,
     init_X = NULL,
     init_H = NULL,
+    init_W = NULL,
     init_Omega = NULL,
+
     init_proportions_rows = NULL,
     init_proportions_ = NULL,
+    init_basis_cols = NULL,
+    init_basis_ = NULL,
     unity = NULL,
     inits_statistics = NULL,
+    inits_Omega_statistics = NULL,
     errors_statistics = NULL,
     optim_init_proportions_rows = NULL,
     optim_init_proportions_ = NULL,
@@ -274,7 +281,7 @@ SinkhornLinseed <- R6Class(
       self$new_samples_points <- t(self$S %*% self$V_column)
     },
     
-    selectInit = function() {
+    selectInitX = function() {
       constraints_ = F
       cnt_ <- 0
       cnt_proportions <- 0
@@ -305,6 +312,35 @@ SinkhornLinseed <- R6Class(
         }
       }
     },
+
+    selectInitOmega = function() {
+      constraints_ = F
+      cnt_ <- 0
+      select_k <- self$cell_types
+      limit_ <- select_k*ncol(self$V_column)
+      while (!constraints_) {
+        cnt_ <- cnt_ + 1
+        if (cnt_ > limit_) {
+          self$init_Omega <- NULL
+          stop(paste0("Couldn't find initial points"))
+        }
+        self$init_basis_cols <- sample(ncol(self$V_column), select_k)
+        self$init_basis_ <- self$V_column[, self$init_basis_cols]
+        self$init_Omega <- self$S %*% self$init_basis_
+        colnames(self$init_Omega) <- paste('Cell type', 1:self$cell_types)
+        out <- tryCatch(solve(self$init_Omega,self$B)[,1], error = function(e) e)
+        if (!any(class(out) == "error")) {
+          if (all(out>=0)) {
+            constraints_ <- T
+            self$init_W <- t(self$S) %*% self$init_Omega
+            self$init_D_w <- diag(out)
+            self$init_D <- self$init_D_w
+            self$init_X <- ginv(self$init_Omega%*%self$init_D) %*% self$Sigma
+          }
+        }
+      }
+    },
+
     
     optimizeInitProportions = function(iterations_=5) {
       if (is.null(self$init_X)) {
