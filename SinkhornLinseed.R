@@ -517,8 +517,8 @@ SinkhornLinseed <- R6Class(
           }
           pb$tick()
       }
-      
-      print(new_total_error)
+
+      print(total_init_error)
       self$init_X <- new_init_X
       self$init_W <- new_init_W
       
