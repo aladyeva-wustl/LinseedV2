@@ -369,7 +369,10 @@ SinkhornLinseed <- R6Class(
       new_init_proportions_rows <- self$init_proportions_rows
 
       genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
-      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error,TRUE))
+      neg_proportions <- sum(self$init_H < -1e-10) / self$N
+      neg_basis <- sum(t(self$S) %*% self$init_Omega < -1e-10) / self$M
+      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,
+      beta_error,d_error,total_init_error,neg_proportions,neg_basis,TRUE))
       
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -396,7 +399,10 @@ SinkhornLinseed <- R6Class(
                   new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
 
                   genes_ <- rownames(self$filtered_dataset[try_points,])
-                  self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,(new_total_error < total_init_error)))
+                  neg_proportions <- sum(H < -1e-10) / self$N
+                  neg_basis <- sum(t(self$S) %*% Omega < -1e-10) / self$M
+                  self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,
+                  new_d_error,new_total_error,neg_proportions,neg_basis,(new_total_error < total_init_error)))
 
                   if (all(out<0)) {
                     next
@@ -449,7 +455,7 @@ SinkhornLinseed <- R6Class(
       V_column_ <- self$S %*% self$V_column %*% t(self$R)
 
       init_error <- norm(V_column_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
-      lambda_error <- self$hinge(new_init_X %*% self$R) 
+      lambda_error <- self$hinge(new_init_X %*% self$R)
       beta_error <- self$hinge(new_init_W)
       d_error <- self$hinge(self$init_D)
       total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
@@ -459,7 +465,10 @@ SinkhornLinseed <- R6Class(
       new_init_basis_cols <- self$init_basis_cols
 
       samples_ <- colnames(self$filtered_dataset[,self$init_basis_cols])
-      self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,beta_error,d_error,total_init_error,TRUE))
+      neg_proportions <- sum(self$init_X %*% self$R < -1e-10) / self$N
+      neg_basis <- sum(new_init_W < -1e-10) / self$M
+      self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,
+      beta_error,d_error,total_init_error,neg_proportions,neg_basis,TRUE))
 
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -486,7 +495,10 @@ SinkhornLinseed <- R6Class(
                   new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
 
                   samples_ <- colnames(self$filtered_dataset[,try_points])
-                  self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(try_points,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,
+                  neg_proportions <- sum(X %*% self$R < -1e-10) / self$N
+                  neg_basis <- sum(W < -1e-10) / self$M
+                  self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(try_points,new_error,new_lambda_error,
+                  new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
                   (new_total_error < total_init_error)))
 
                   if (all(out<0)) {
