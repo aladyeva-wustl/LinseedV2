@@ -474,8 +474,6 @@ SinkhornLinseed <- R6Class(
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
           while(length(shuffle_set) >= self$cell_types) {
             try_points <- shuffle_set[1:self$cell_types]
-            print(try_points)
-            print(length(shuffle_set))
             
             Omega <- self$S %*% self$V_column[,try_points]
             out <- tryCatch(solve(t(Omega),self$B)[,1], error = function(e) e)
@@ -523,7 +521,6 @@ SinkhornLinseed <- R6Class(
           }
       }
 
-      self$optim_init_basis_cols <- new_init_basis_cols
       self$optim_init_basis_ <- self$V_column[,try_points]
       
       self$init_X <- new_init_X
