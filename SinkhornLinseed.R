@@ -469,6 +469,7 @@ SinkhornLinseed <- R6Class(
       all_points <- simulation_3_no_noise$V_column
       for (itr_ in 1:iterations_){
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
+          
           while(length(shuffle_set) >= self$cell_types) {
             try_points <- sample(shuffle_set,self$cell_types)
             
@@ -494,7 +495,7 @@ SinkhornLinseed <- R6Class(
                   new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
                   (new_total_error < total_init_error)))
                   shuffle_set <- shuffle_set[-which(shuffle_set %in% try_points)]
-                  pb$tick()
+                  
                   
                   if (all(out<0)) {
                     next
@@ -515,6 +516,7 @@ SinkhornLinseed <- R6Class(
                   }
             }
           }
+          pb$tick()
       }
       
       self$init_X <- new_init_X
