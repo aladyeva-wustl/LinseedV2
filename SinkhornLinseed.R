@@ -372,7 +372,7 @@ SinkhornLinseed <- R6Class(
       neg_proportions <- sum(self$init_H < -1e-10) / self$N
       neg_basis <- sum(t(self$S) %*% self$init_Omega < -1e-10) / self$M
       self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,
-      beta_error,d_error,total_init_error,neg_proportions,neg_basis,TRUE))
+      beta_error,d_error,total_init_error,neg_proportions,neg_basis,1))
       
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -468,7 +468,7 @@ SinkhornLinseed <- R6Class(
       neg_proportions <- sum(self$init_X %*% self$R < -1e-10) / self$N
       neg_basis <- sum(new_init_W < -1e-10) / self$M
       self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,
-      beta_error,d_error,total_init_error,neg_proportions,neg_basis,TRUE))
+      beta_error,d_error,total_init_error,neg_proportions,neg_basis,1))
 
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -497,7 +497,7 @@ SinkhornLinseed <- R6Class(
                   samples_ <- colnames(self$filtered_dataset[,try_points])
                   neg_proportions <- sum(X %*% self$R < -1e-10) / self$N
                   neg_basis <- sum(W < -1e-10) / self$M
-                  self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(try_points,new_error,new_lambda_error,
+                  self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,new_error,new_lambda_error,
                   new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
                   (new_total_error < total_init_error)))
 
