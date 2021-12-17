@@ -404,7 +404,6 @@ SinkhornLinseed <- R6Class(
                   }
                   
                   if (new_total_error < total_init_error) {
-                    print(new_total_error)
                     
                     new_init_X <- X
                     new_init_H <- H
@@ -423,6 +422,8 @@ SinkhornLinseed <- R6Class(
             }
         }
       }
+
+      print(total_init_error)
       
       self$init_X <- new_init_X
       self$init_H <- new_init_H
@@ -461,9 +462,12 @@ SinkhornLinseed <- R6Class(
       self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
 
+      pb <- progress_bar$new(
+        format = "Optimizing Omega [:bar] :percent eta: :eta",
+        total = iterations_, clear = FALSE, width= 60)
+
       all_points <- simulation_3_no_noise$V_column
       for (itr_ in 1:iterations_){
-          print(itr_)
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
           while(length(shuffle_set) >= self$cell_types) {
             try_points <- sample(shuffle_set,self$cell_types)
@@ -490,6 +494,7 @@ SinkhornLinseed <- R6Class(
                   new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
                   (new_total_error < total_init_error)))
                   shuffle_set <- shuffle_set[-which(shuffle_set %in% try_points)]
+                  pb$tick()
                   
                   if (all(out<0)) {
                     next
