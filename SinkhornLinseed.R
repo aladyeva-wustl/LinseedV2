@@ -434,7 +434,7 @@ SinkhornLinseed <- R6Class(
       
     },
 
-    optimizeInitBasis = function(iterations_=(self$N^2)/self$cell_types) {
+    optimizeInitBasis = function(iterations_=(self$N^2)/2) {
       if (is.null(self$init_Omega)) {
         self$selectInitOmega()
       }
