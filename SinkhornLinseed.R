@@ -474,6 +474,7 @@ SinkhornLinseed <- R6Class(
           shuffle_set <- sample(ncol(left_points), ncol(left_points))
           while(length(shuffle_set) >= self$cell_types) {
             try_points <- shuffle_set[1:self$cell_types]
+            print(try_points)
             
             Omega <- self$S %*% self$V_column[,try_points]
             out <- tryCatch(solve(t(Omega),self$B)[,1], error = function(e) e)
