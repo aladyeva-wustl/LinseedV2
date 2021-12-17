@@ -369,7 +369,7 @@ SinkhornLinseed <- R6Class(
       new_init_proportions_rows <- self$init_proportions_rows
 
       genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
-      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error,all(self$init_D_h>0)))
+      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error,TRUE))
       
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -396,7 +396,7 @@ SinkhornLinseed <- R6Class(
                   new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
 
                   genes_ <- rownames(self$filtered_dataset[try_points,])
-                  self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,all(out>0)))
+                  self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,(new_total_error < total_init_error)))
 
                   if (all(out<0)) {
                     continue
@@ -459,7 +459,7 @@ SinkhornLinseed <- R6Class(
       new_init_basis_cols <- self$init_basis_cols
 
       samples_ <- colnames(self$filtered_dataset[,self$init_basis_cols])
-      self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,beta_error,d_error,total_init_error,all(self$init_D>0)))
+      self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,beta_error,d_error,total_init_error,TRUE))
 
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -487,7 +487,7 @@ SinkhornLinseed <- R6Class(
 
                   samples_ <- colnames(self$filtered_dataset[,try_points])
                   self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(try_points,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,
-                  all(out>0)))
+                  (new_total_error < total_init_error)))
 
                   if (all(out<0)) {
                     continue
