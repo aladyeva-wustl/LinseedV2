@@ -69,11 +69,13 @@ SinkhornLinseed <- R6Class(
     init_basis_cols = NULL,
     init_basis_ = NULL,
     unity = NULL,
-    inits_statistics = NULL,
-    inits_Omega_statistics = NULL,
+    inits_statistics_X = NULL,
+    inits_statistics_Omega = NULL,
     errors_statistics = NULL,
     optim_init_proportions_rows = NULL,
     optim_init_proportions_ = NULL,
+    optim_init_basis_cols = NULL,
+    optim_init_basis_ = NULL,
     genes_mean = NULL,
     genes_sd = NULL,
     genes_mad = NULL,
@@ -344,9 +346,9 @@ SinkhornLinseed <- R6Class(
     
     optimizeInitProportions = function(iterations_=5) {
       if (is.null(self$init_X)) {
-        self$selectInit()
+        self$selectInitX()
       }
-      self$inits_statistics <- NULL
+      self$inits_statistics_X <- NULL
 
       new_init_X <- self$init_X
       new_init_H <- self$init_H
@@ -367,7 +369,7 @@ SinkhornLinseed <- R6Class(
       new_init_proportions_rows <- self$init_proportions_rows
 
       genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
-      self$inits_statistics <- rbind(self$inits_statistics,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error))
+      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,beta_error,d_error,total_init_error,all(seelf$init_D_h>0)))
       
       for (itr_ in 1:iterations_){
         for (change_point in 1:self$cell_types) {
@@ -394,7 +396,7 @@ SinkhornLinseed <- R6Class(
                   new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
 
                   genes_ <- rownames(self$filtered_dataset[try_points,])
-                  self$inits_statistics <- rbind(self$inits_statistics,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error))
+                  self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,all(out>0)))
 
                   if (all(out<0)) {
                     continue
@@ -430,6 +432,97 @@ SinkhornLinseed <- R6Class(
       self$init_D <- new_D
       self$init_Omega <- new_init_Omega
       
+    },
+
+    optimizeInitBasis = function(iterations_=5) {
+      if (is.null(self$init_Omega)) {
+        self$selectInitOmega()
+      }
+      self$inits_statistics_X <- NULL
+
+      new_init_X <- self$init_X
+      new_init_W <- self$init_W
+      new_D_w <- self$init_D_w
+      new_D <- self$init_D
+      new_init_Omega <- self$init_Omega
+
+      V_column_ <- self$S %*% self$V_column %*% t(self$R)
+
+      init_error <- norm(V_column_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
+      lambda_error <- self$hinge(new_init_X %*% self$R) 
+      beta_error <- self$hinge(new_init_W)
+      d_error <- self$hinge(self$init_D)
+      total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
+      
+      print(paste("Init error:", total_init_error))
+      all_selections <- self$init_basis_cols
+      new_init_basis_cols <- self$init_basis_cols
+
+      samples_ <- colnames(self$filtered_dataset[,self$init_basis_cols])
+      self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,beta_error,d_error,total_init_error,all(self$init_D>0)))
+
+      for (itr_ in 1:iterations_){
+        for (change_point in 1:self$cell_types) {
+          print(paste(itr_,change_point))
+          left_points <- self$V_column[,-all_selections]
+          shuffle_set <- sample(nrow(left_points), nrow(left_points))
+          for (elem in shuffle_set) {
+            try_points <- new_init_basis_cols
+            try_points[change_point] <- elem
+            
+            Omega <- self$S %*% self$V_column[,try_points]
+            out <- tryCatch(solve(t(Omega),self$B)[,1], error = function(e) e)
+              if (!any(class(out) == "error")) {
+                
+                  W <- t(self$S) %*% Omega
+                  D_w <- diag(as.vector(out))
+                  D <- D_w
+                  X <- ginv(Omega %*% D) %*% self$Sigma
+                  
+                  new_error <- norm(V_column_ - Omega %*% D %*% X,"F")
+                  new_lambda_error <- self$hinge(X %*% self$R) 
+                  new_beta_error <- self$hinge(W) 
+                  new_d_error <- self$hinge(D)
+                  new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
+
+                  samples_ <- colnames(self$filtered_dataset[,try_points])
+                  self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(try_points,new_error,new_lambda_error,new_beta_error,new_d_error,new_total_error,
+                  all(out>0)))
+
+                  if (all(out<0)) {
+                    continue
+                  }
+                  
+                  if (new_total_error < total_init_error) {
+                    print(new_total_error)
+                    
+                    new_init_X <- X
+                    new_init_W <- W
+                    new_D_w <- D_w
+                    new_D <- D
+                    new_init_Omega <- Omega
+                    
+                    total_init_error <- new_total_error
+                    all_selections <- c(all_selections,elem)
+                    new_init_basis_cols <- try_points
+                    
+                    break 
+                  }
+            }
+          }
+        }
+      }
+
+      self$optim_init_basis_cols <- new_init_basis_cols
+      self$optim_init_basis_ <- self$V_column[,try_points]
+      
+      self$init_X <- new_init_X
+      self$init_W <- new_init_W
+      
+      self$init_D_w <- new_D_w
+      self$init_D <- new_D
+      self$init_Omega <- new_init_Omega
+
     },
     
     hinge = function(X) {
