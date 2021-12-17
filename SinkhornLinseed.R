@@ -502,7 +502,6 @@ SinkhornLinseed <- R6Class(
                   }
                   
                   if (new_total_error < total_init_error) {
-                    print(new_total_error)
                     
                     new_init_X <- X
                     new_init_W <- W
@@ -519,6 +518,7 @@ SinkhornLinseed <- R6Class(
           pb$tick()
       }
       
+      print(new_total_error)
       self$init_X <- new_init_X
       self$init_W <- new_init_W
       
