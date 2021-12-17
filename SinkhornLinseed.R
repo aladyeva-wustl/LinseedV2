@@ -500,6 +500,7 @@ SinkhornLinseed <- R6Class(
                   (new_total_error < total_init_error)))
 
                   if (all(out<0)) {
+                    shuffle_set <- shuffle_set[(self$cell_types+1):length(shuffle_set)]
                     next
                   }
                   
