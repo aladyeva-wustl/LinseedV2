@@ -298,7 +298,7 @@ SinkhornLinseed <- R6Class(
         self$init_X <- self$init_proportions_ %*% t(self$R)
         rownames(self$init_X) <- paste('Cell type', 1:self$cell_types)
         
-        out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
+        out <- tryCatch(solve(t(self$7),self$A)[,1], error = function(e) e)
         if (!any(class(out) == "error")) {
           if (all(out>=0)) {
             constraints_ <- T
@@ -335,12 +335,11 @@ SinkhornLinseed <- R6Class(
             self$init_D <- self$init_D_w
             self$init_X <- ginv(self$init_Omega%*%self$init_D) %*% self$Sigma
           }
-        }
-      }
+        }                                 negative_basis                
     },
 
     
-    optimizeInitProportions = function(iterations_=5) {
+    optimizeInitProportions = function(iterations_=10000) {
       if (is.null(self$init_X)) {
         self$selectInitX()
       }
@@ -371,12 +370,7 @@ SinkhornLinseed <- R6Class(
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
       
       for (itr_ in 1:iterations_){
-                for (change_point in 1:self$cell_types) {
-          left_points <- self$V_row[-all_selections, ]
-          shuffle_set <- sample(nrow(left_points), nrow(left_points))
-          for (elem in shuffle_set) {
-            try_points <- new_init_proportions_rows
-            try_points[change_point] <- elem
+          try_points <- sample(nrow(self$V_row),self$cell_types)
             
             X <- self$V_row[try_points,] %*% t(self$R)
             out <- tryCatch(solve(t(X),self$A)[,1], error = function(e) e)
@@ -412,8 +406,6 @@ SinkhornLinseed <- R6Class(
                     new_init_Omega <- Omega
                     
                     total_init_error <- new_total_error
-                    all_selections <- c(all_selections,elem)
-                    new_init_proportions_rows <- try_points
 
                     
                     break 
