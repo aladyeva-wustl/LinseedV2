@@ -367,6 +367,10 @@ SinkhornLinseed <- R6Class(
       neg_basis <- sum(t(self$S) %*% self$init_Omega < -1e-10) / (self$M*self$cell_types)
       self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,
       beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
+
+      pb <- progress_bar$new(
+        format = "Optimizing X [:bar] :percent eta: :eta",
+        total = iterations_, clear = FALSE, width= 60)
       
       for (itr_ in 1:iterations_){
           try_points <- sample(nrow(self$V_row),self$cell_types)
@@ -393,6 +397,7 @@ SinkhornLinseed <- R6Class(
                   new_d_error,new_total_error,neg_proportions,neg_basis,(new_total_error < total_init_error)))
 
                   if (all(out<0)) {
+                    pb$tick()
                     next
                   }
                   
@@ -407,6 +412,7 @@ SinkhornLinseed <- R6Class(
                     total_init_error <- new_total_error
                   }
               }
+              pb$tick()
             }
 
       print(total_init_error)
@@ -420,7 +426,7 @@ SinkhornLinseed <- R6Class(
       
     },
 
-    optimizeInitBasis = function(iterations_=(self$N^2)/2) {
+    optimizeInitBasis = function(iterations_=10000) {
       if (is.null(self$init_Omega)) {
         self$selectInitOmega()
       }
@@ -452,7 +458,6 @@ SinkhornLinseed <- R6Class(
         format = "Optimizing Omega [:bar] :percent eta: :eta",
         total = iterations_, clear = FALSE, width= 60)
 
-      all_points <- simulation_3_no_noise$V_column
       for (itr_ in 1:iterations_){
           try_points <- sample(ncol(self$V_column),self$cell_types)
           
@@ -480,6 +485,7 @@ SinkhornLinseed <- R6Class(
                   
                   
                   if (all(out<0)) {
+                    pb$tick()
                     next
                   }
                   
