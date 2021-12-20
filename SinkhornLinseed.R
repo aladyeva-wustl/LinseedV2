@@ -293,12 +293,10 @@ SinkhornLinseed <- R6Class(
           stop(paste0("Couldn't find initial points"))
         }
         
-        self$init_proportions_rows <- sample(nrow(self$V_row), select_k)
-        self$init_proportions_ <- self$V_row[self$init_proportions_rows, ]
         self$init_X <- self$init_proportions_ %*% t(self$R)
         rownames(self$init_X) <- paste('Cell type', 1:self$cell_types)
         
-        out <- tryCatch(solve(t(self$7),self$A)[,1], error = function(e) e)
+        out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
         if (!any(class(out) == "error")) {
           if (all(out>=0)) {
             constraints_ <- T
