@@ -407,8 +407,6 @@ SinkhornLinseed <- R6Class(
                   }
               }
             }
-        }
-      }
 
       print(total_init_error)
       
