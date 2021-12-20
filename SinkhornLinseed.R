@@ -331,7 +331,8 @@ SinkhornLinseed <- R6Class(
             self$init_D <- self$init_D_w
             self$init_X <- ginv(self$init_Omega%*%self$init_D) %*% self$Sigma
           }
-        }                                                 
+        } 
+        }                                                
     },
 
     
