@@ -320,8 +320,6 @@ SinkhornLinseed <- R6Class(
           self$init_Omega <- NULL
           stop(paste0("Couldn't find initial points"))
         }
-        self$init_basis_cols <- sample(ncol(self$V_column), select_k)
-        self$init_basis_ <- self$V_column[, self$init_basis_cols]
         self$init_Omega <- self$S %*% self$init_basis_
         colnames(self$init_Omega) <- paste('Cell type', 1:self$cell_types)
         out <- tryCatch(solve(self$init_Omega,self$B)[,1], error = function(e) e)
@@ -333,7 +331,7 @@ SinkhornLinseed <- R6Class(
             self$init_D <- self$init_D_w
             self$init_X <- ginv(self$init_Omega%*%self$init_D) %*% self$Sigma
           }
-        }                                 negative_basis                
+        }                                                 
     },
 
     
