@@ -492,8 +492,6 @@ SinkhornLinseed <- R6Class(
                     new_init_Omega <- Omega
                     
                     total_init_error <- new_total_error
-                    
-                    break 
                   }
           }
           pb$tick()
