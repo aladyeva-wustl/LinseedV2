@@ -360,8 +360,6 @@ SinkhornLinseed <- R6Class(
       total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
       
       print(paste("Init error:",total_init_error))
-      all_selections <- self$init_proportions_rows
-      new_init_proportions_rows <- self$init_proportions_rows
 
       genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
       neg_proportions <- sum(self$init_H < -1e-10) / (self$N*self$cell_types)
@@ -460,13 +458,10 @@ SinkhornLinseed <- R6Class(
 
       all_points <- simulation_3_no_noise$V_column
       for (itr_ in 1:iterations_){
-          shuffle_set <- sample(ncol(left_points), ncol(left_points))
+          try_points <- sample(ncol(self$V_column),self$cell_types)
           
-          while(length(shuffle_set) >= self$cell_types) {
-            try_points <- sample(shuffle_set,self$cell_types)
-            
-            Omega <- self$S %*% self$V_column[,try_points]
-            out <- tryCatch(solve(Omega,self$B)[,1], error = function(e) e)
+          Omega <- self$S %*% self$V_column[,try_points]
+          out <- tryCatch(solve(Omega,self$B)[,1], error = function(e) e)
               if (!any(class(out) == "error")) {
                 
                   W <- t(self$S) %*% Omega
@@ -486,7 +481,6 @@ SinkhornLinseed <- R6Class(
                   self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,new_error,new_lambda_error,
                   new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
                   (new_total_error < total_init_error)))
-                  shuffle_set <- shuffle_set[-which(shuffle_set %in% try_points)]
                   
                   
                   if (all(out<0)) {
@@ -505,7 +499,6 @@ SinkhornLinseed <- R6Class(
                     
                     break 
                   }
-            }
           }
           pb$tick()
       }
