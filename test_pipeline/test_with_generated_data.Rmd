@@ -38,6 +38,7 @@ obj[['cell_types']] <- 3
 
 ```{r}
 EXPERIMENT_ID <- "Sinkhorn_3_ct_no_noise"
+RES.DIR <- "./results/"
 ```
 
 ```{r}
@@ -138,7 +139,7 @@ p
 ```
 
 ```{r}
-simulation_3_no_noise$optimizeInitBasis(15)
+simulation_3_no_noise$optimizeInitBasis()
 ```
 
 ```{r}
@@ -153,26 +154,52 @@ p <- ggplot(toPlot, aes(x=Y, y=Z, color=negative)) +
 p
 ```
 
+```{r}
+View(simulation_3_no_noise$inits_statistics_Omega)
+```
 
 ```{r}
 toPlot <- data.frame(simulation_3_no_noise$inits_statistics_X)
-toPlot$X5 <- as.numeric(toPlot$X5)
-toPlot$X6 <- as.numeric(toPlot$X6)
+toPlot$X9 <- as.numeric(toPlot$X9)*100
+toPlot$X10 <- as.numeric(toPlot$X10)*100
 toPlot$variable <- "X"
-median_X <- median(toPlot$X6)
+median_X <- median(toPlot$X10)
 
 toPlotE <- data.frame(simulation_3_no_noise$inits_statistics_Omega)
-toPlotE$X5 <- as.numeric(toPlotE$X5)
-toPlotE$X6 <- as.numeric(toPlotE$X6)
+toPlotE$X9 <- as.numeric(toPlotE$X9)*100
+toPlotE$X10 <- as.numeric(toPlotE$X10)*100
 toPlotE$variable <- "Omega"
-median_Omega <- median(toPlotE$X5)
+median_Omega <- median(toPlotE$X9)
 
 toPlot <- rbind(toPlot,toPlotE)
 
-ggplot(toPlot,aes(X5,X6,color=variable)) + geom_point() + 
-  xlab("Hinge proportions") + ylab("Hinge basis") + theme_minimal() +
+ggplot(toPlot,aes(X9,X10,color=variable)) + geom_point() + 
+  xlab("Negative proportions, %") + ylab("Negative basis, %") + theme_minimal() +
   geom_hline(yintercept=median(median_X, linetype="dashed")) +
-  geom_vline(xintercept=median(median_Omega, linetype="dashed")) + coord_cartesian(x=c(0,1),y=c(0,10))
+  geom_vline(xintercept=median(median_Omega, linetype="dashed")) + 
+  coord_cartesian(x=c(0,100),y=c(0,100)) +
+  annotate(geom = "text", x = median_Omega, y = 100, 
+    label = paste(round(median_Omega,2),"%"), hjust = -0.1, vjust = 1, size = 4) +
+  annotate(geom = "text", x = 100, y = median_X, 
+    label = paste(round(median_X,2),"%"), hjust = 1, vjust = -0.2, size = 4) +
+  annotate(geom = "text", x = 100, y = 100, 
+    label = round(median_X/median_Omega,2), hjust = 1, vjust = 1, size = 4)
   
 ```
 
+```{r}
+tmp_ <- data.frame(simulation_3_no_noise$inits_statistics_Omega) 
+tmp_ %>% filter(X1 %in% c("Sample 41","Sample 42","Sample 43")) %>% 
+  filter(X2 %in% c("Sample 41","Sample 42","Sample 43")) %>%
+  filter(X3 %in% c("Sample 41","Sample 42","Sample 43"))
+```
+
+```{r}
+Omega_1 <- simulation_3_no_noise$S %*% simulation_3_no_noise$V_column[,c(43,42,41)]
+solve(Omega_1,simulation_3_no_noise$B)[,1]
+```
+
+```{r}
+Omega_2 <- simulation_3_no_noise$S %*% simulation_3_no_noise$V_column[,c(41,42,43)]
+solve(Omega_2,simulation_3_no_noise$B)[,1]
+```
