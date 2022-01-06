@@ -1,0 +1,215 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+cell_types <- 3
+k <- 3
+noiseDeviation <- 6
+sampleLogSd <- 4
+sampleLogMean <- 3
+
+test_data_high_noise <- generateExample(40,10000,cell_types,sampleLogSd,sampleLogMean,noiseDeviation,k)
+```
+
+```{r}
+EXPERIMENT_ID <- "Sinkhorn_3_ct_high_noise"
+
+analysis_name <- paste0(EXPERIMENT_ID)
+
+obj[['path']] <- file.path(analysis_name)
+path_ <- file.path(RES.DIR, obj[['path']])
+
+i <- 1
+analysis_name <- paste0(analysis_name,"_",i)
+
+simulation_3_high_noise <- SinkhornLinseed$new(dataset = EXPERIMENT_ID, 
+                                          path = path_, data = test_data_high_noise$generated_data$data,
+                                          analysis_name = analysis_name,
+                                          cell_types = obj[['cell_types']],
+                                          coef_hinge_H = obj[['coef_hinge_H']],
+                                          coef_hinge_W = obj[['coef_hinge_W']],
+                                          coef_pos_D_h = obj[['coef_pos_D_h']],
+                                          coef_pos_D_w = obj[['coef_pos_D_w']],
+                                          coef_der_X = obj[['coef_der_X']],
+                                          coef_der_Omega = obj[['coef_der_Omega']],
+                                          inner_iterations = obj[['inner_iterations']],
+                                          inner_iterations_Omega = obj[['inner_iterations']],
+                                          global_iterations = obj[['global_iterations']])
+simulation_3_high_noise$selectTopGenes(8000)
+```
+
+```{r}
+simulation_3_high_noise$scaleDataset(iterations = 1000)
+```
+
+```{r}
+simulation_3_high_noise$getSvdProjectionsNew()
+```
+
+```{r}
+init_proportions_rows <- sample(nrow(simulation_3_high_noise$V_row), simulation_3_high_noise$cell_types)
+init_proportions_ <- simulation_3_high_noise$V_row[init_proportions_rows, ]
+init_X <- init_proportions_ %*% t(simulation_3_high_noise$R)
+```
+
+#test for d value derivative constraint
+```{r}
+D <- matrix(solve(t(init_X),simulation_3_high_noise$A)[,1],nrow=3,ncol=1)
+D %*% t(t(init_X)%*%D-simulation_3_high_noise$A)
+norm(t(init_X) %*% D - simulation_3_high_noise$A,"F")
+```
+```{r}
+D <- ncol(simulation_3_high_noise$V_row) * matrix(c(1/3,1/3,1/3),nrow=3,ncol=1)
+D
+```
+
+```{r}
+coef_ <- 100
+print(simulation_3_high_noise$hinge(init_X %*% simulation_3_high_noise$R) + coef_ * norm(t(init_X) %*% D - simulation_3_high_noise$A,"F"))
+
+X_hinge_der <- simulation_3_high_noise$hinge_der_proportions(init_X %*% simulation_3_high_noise$R, simulation_3_high_noise$R) + coef_ * D %*% t(t(init_X)%*%D-simulation_3_high_noise$A)
+X_hinge_der[,1] <- 0
+new_X <- init_X - 0.00001 * X_hinge_der
+print(simulation_3_high_noise$hinge(new_X %*% simulation_3_high_noise$R) + coef_ * norm(t(new_X) %*% D - simulation_3_high_noise$A,"F"))
+```
+
+```{r}
+for (i in 1:10000) {
+  X_hinge_der <- simulation_3_high_noise$hinge_der_proportions(new_X %*% simulation_3_high_noise$R, simulation_3_high_noise$R) + coef_ * D %*% t(t(new_X)%*%D-simulation_3_high_noise$A)  
+  X_hinge_der[,1] <- 0
+  new_X <- new_X - 0.00001 * X_hinge_der
+}
+print(simulation_3_high_noise$hinge(new_X %*% simulation_3_high_noise$R) + coef_ * norm(t(new_X) %*% D - simulation_3_high_noise$A,"F"))
+
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(init_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(init_X), fill=NA, color = "green") +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(new_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(new_X), fill=NA, color = "green") +
+  theme_minimal() + coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+correct_X <- (test_data_high_noise$generated_data$proportions / rowSums(test_data_high_noise$generated_data$proportions)) %*% t(simulation_3_high_noise$R)
+toPlot <- as.data.frame(simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(correct_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(correct_X), fill=NA, color = "green") +
+  theme_minimal() + coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+init_proportions_rows <- sample(nrow(simulation_3_high_noise$V_row), simulation_3_high_noise$cell_types)
+init_proportions_ <- simulation_3_high_noise$V_row[init_proportions_rows, ]
+init_X <- init_proportions_ %*% t(simulation_3_high_noise$R)
+
+init_basis_cols <- sample(ncol(simulation_3_high_noise$V_column), simulation_3_high_noise$cell_types)
+init_basis_ <- simulation_3_high_noise$V_column[, init_basis_cols]
+init_Omega <- simulation_3_high_noise$S %*% init_basis_
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(init_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(init_X), fill=NA, color = "green") +
+  theme_minimal() + coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_high_noise$S %*% simulation_3_high_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(init_Omega) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(init_Omega)), fill=NA, color = "green") +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+coef_ <- 10
+new_X <- init_X
+N <- ncol(simulation_3_high_noise$V_row)
+M <- nrow(simulation_3_high_noise$V_row)
+D_h <- N * matrix(c(1/3,1/3,1/3),nrow=3,ncol=1)
+D <- D_h * (M/N)
+
+print(simulation_3_high_noise$hinge(init_X %*% simulation_3_high_noise$R) + coef_ * norm(t(init_X) %*% D - simulation_3_high_noise$A,"F"))
+print(simulation_3_high_noise$hinge(t(simulation_3_high_noise$S)%*%init_Omega) + coef_ * norm(init_Omega %*% D_w - simulation_3_high_noise$B,"F"))
+```
+
+
+```{r}
+for (i in 1:1) {
+  V_row_ <- simulation_3_high_noise$S %*% simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R)
+  
+  X_hinge_der <- simulation_3_high_noise$hinge_der_proportions(new_X %*% simulation_3_high_noise$R, simulation_3_high_noise$R) + coef_ * D_h %*% t(t(new_X)%*%D_h-simulation_3_high_noise$A)
+  X_hinge_der[,1] <- 0
+  new_X <- new_X - 0.00001 * X_hinge_der
+  new_Omega <- V_row_ %*% ginv(diag(D[,1]) %*% new_X)
+
+  Omega_hinge_der <- simulation_3_high_noise$hinge_der_basis(t(simulation_3_high_noise$S)%*%new_Omega, simulation_3_high_noise$S) + coef_ * (new_Omega%*%D-simulation_3_high_noise$B) %*% t(D)
+  Omega_hinge_der[1,] <- 0
+  new_Omega <- new_Omega - 0.000000001 * Omega_hinge_der
+  new_X <- ginv(new_Omega %*% diag(D[,1])) %*% V_row_
+}
+
+print(simulation_3_high_noise$hinge(new_X %*% simulation_3_high_noise$R) + coef_ * norm(t(new_X) %*% D - simulation_3_high_noise$A,"F"))
+print(simulation_3_high_noise$hinge(t(simulation_3_high_noise$S)%*%new_Omega) + coef_ * norm(new_Omega %*% D_w - simulation_3_high_noise$B,"F"))  
+
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(new_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(new_X), fill=NA, color = "green") +
+  theme_minimal() + coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_high_noise$S %*% simulation_3_high_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(new_Omega) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(new_Omega)), fill=NA, color = "green") +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+
+
+
+
+
+
+

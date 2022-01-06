@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+EXPERIMENT_ID <- "Sinkhorn_3_ct_noise"
+RES.DIR <- "./results/"
+```
+
+```{r}
+analysis_name <- paste0(EXPERIMENT_ID)
+
+obj[['path']] <- file.path(analysis_name)
+path_ <- file.path(RES.DIR, obj[['path']])
+
+i <- 1
+analysis_name <- paste0(analysis_name,"_",i)
+```
+
+```{r}
+simulation_3_noise <- SinkhornLinseed$new(dataset = EXPERIMENT_ID, 
+                                          path = path_, data = test_data_noise$generated_data$data,
+                                          analysis_name = analysis_name,
+                                          cell_types = obj[['cell_types']],
+                                          coef_hinge_H = obj[['coef_hinge_H']],
+                                          coef_hinge_W = obj[['coef_hinge_W']],
+                                          coef_pos_D_h = obj[['coef_pos_D_h']],
+                                          coef_pos_D_w = obj[['coef_pos_D_w']],
+                                          coef_der_X = obj[['coef_der_X']],
+                                          coef_der_Omega = obj[['coef_der_Omega']],
+                                          inner_iterations = obj[['inner_iterations']],
+                                          inner_iterations_Omega = obj[['inner_iterations']],
+                                          global_iterations = obj[['global_iterations']])
+simulation_3_noise$selectTopGenes(8000)
+```
+
+```{r}
+simulation_3_noise$scaleDataset(iterations = 500)
+```
+
+
+```{r}
+simulation_3_noise$getSvdProjectionsNew()
+```
+
+```{r}
+simulation_3_noise$S[,1:10]
+```
+
+```{r}
+simulation_3_noise$R[,1:10]
+```
+```{r}
+simulation_3_noise$selectInitX()
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_noise$V_row %*% t(simulation_3_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+toPlot$negative <- apply(simulation_3_noise$V_row %*% t(simulation_3_noise$R) %*% simulation_3_noise$R,1,function(x){!all(x>=0)})
+colnames(simulation_3_noise$init_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z, color=negative)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(simulation_3_noise$init_X), fill=NA, color = "green") +
+  theme_minimal() + coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+simulation_3_noise$optimizeInitProportions()
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_noise$V_row %*% t(simulation_3_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+toPlot$negative <- apply(simulation_3_noise$V_row %*% t(simulation_3_noise$R) %*% simulation_3_noise$R,1,function(x){!all(x>=0)})
+colnames(simulation_3_noise$init_X) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z, color=negative)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(simulation_3_noise$init_X), fill=NA, color = "green") +
+  theme_minimal() + coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+View(simulation_3_noise$inits_statistics_X)
+```
+
+```{r}
+simulation_3_noise$selectInitOmega()
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_noise$S %*% simulation_3_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+toPlot$negative <- apply(t(t(simulation_3_noise$S) %*% simulation_3_noise$S %*% simulation_3_noise$V_column),1,function(x){!all(x>=0)})
+rownames(simulation_3_noise$init_Omega) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z, color=negative)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(simulation_3_noise$init_Omega)), fill=NA, color = "green") +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+```{r}
+simulation_3_noise$optimizeInitBasis()
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_noise$S %*% simulation_3_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+toPlot$negative <- apply(t(t(simulation_3_noise$S) %*% simulation_3_noise$S %*% simulation_3_noise$V_column),1,function(x){!all(x>=0)})
+rownames(simulation_3_noise$init_Omega) <- c("X","Y","Z")
+p <- ggplot(toPlot, aes(x=Y, y=Z, color=negative)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(simulation_3_noise$init_Omega)), fill=NA, color = "green") +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+p
+```
+
+
+```{r}
+toPlot <- data.frame(simulation_3_noise$inits_statistics_X)
+toPlot$X9 <- as.numeric(toPlot$X9)*100
+toPlot$X10 <- as.numeric(toPlot$X10)*100
+toPlot$variable <- "X"
+median_X <- median(toPlot$X10)
+
+toPlotE <- data.frame(simulation_3_noise$inits_statistics_Omega)
+toPlotE$X9 <- as.numeric(toPlotE$X9)*100
+toPlotE$X10 <- as.numeric(toPlotE$X10)*100
+toPlotE$variable <- "Omega"
+median_Omega <- median(toPlotE$X9)
+
+toPlot <- rbind(toPlot,toPlotE)
+
+ggplot(toPlot,aes(X9,X10,color=variable)) + geom_point() + 
+  xlab("Negative proportions, %") + ylab("Negative basis, %") + theme_minimal() +
+  geom_hline(yintercept=median(median_X, linetype="dashed")) +
+  geom_vline(xintercept=median(median_Omega, linetype="dashed")) + 
+  coord_cartesian(x=c(0,100),y=c(0,100)) +
+  annotate(geom = "text", x = median_Omega, y = 100, 
+    label = paste(round(median_Omega,2),"%"), hjust = -0.1, vjust = 1, size = 4) +
+  annotate(geom = "text", x = 100, y = median_X, 
+    label = paste(round(median_X,2),"%"), hjust = 1, vjust = -0.2, size = 4) +
+  annotate(geom = "text", x = 100, y = 100, 
+    label = round(median_X/median_Omega,2), hjust = 1, vjust = 1, size = 4)
+  
+```
