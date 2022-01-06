@@ -1,0 +1,273 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+source("../generate_dataset.R")
+source("../SinkhornLinseed.R")
+```
+
+```{r}
+HNSCC_data <- readRDS("./data/HNSC_HK_CC.rds")
+```
+
+```{r}
+obj <- list()
+obj[['coef_hinge_H']] <- 100
+obj[['coef_hinge_W']] <- 50
+obj[['coef_der_X']] <- 0.00001
+obj[['coef_der_Omega']] <- 1e-05
+obj[['coef_pos_D_h']] <- 20
+obj[['coef_pos_D_w']] <- 20
+obj[['inner_iterations']] <- 1000
+obj[['global_iterations']] <- 30
+obj[['cell_types']] <- 3
+```
+
+```{r}
+EXPERIMENT_ID <- "HNSCC_3"
+RES.DIR <- "results"
+```
+
+```{r}
+analysis_name <- paste0(EXPERIMENT_ID)
+
+obj[['path']] <- file.path(analysis_name)
+path_ <- file.path(RES.DIR, obj[['path']])
+
+i <- 1
+analysis_name <- paste0(analysis_name,"_",i)
+```
+
+
+```{r}
+HNSCC_3 <- SinkhornLinseed$new(dataset = EXPERIMENT_ID, 
+                                          path = path_, data = HNSCC_data,
+                                          analysis_name = analysis_name,
+                                          cell_types = obj[['cell_types']],
+                                          coef_hinge_H = obj[['coef_hinge_H']],
+                                          coef_hinge_W = obj[['coef_hinge_W']],
+                                          coef_pos_D_h = obj[['coef_pos_D_h']],
+                                          coef_pos_D_w = obj[['coef_pos_D_w']],
+                                          coef_der_X = obj[['coef_der_X']],
+                                          coef_der_Omega = obj[['coef_der_Omega']],
+                                          inner_iterations = obj[['inner_iterations']],
+                                          inner_iterations_Omega = obj[['inner_iterations']],
+                                          global_iterations = obj[['global_iterations']])
+HNSCC_3$selectTopGenes(8000)
+```
+
+```{r}
+HNSCC_3$scaleDataset(iterations = 1000)
+```
+
+
+```{r}
+HNSCC_3$getSvdProjectionsNew()
+```
+
+```{r}
+HNSCC_3$S[,1:10]
+```
+
+```{r}
+HNSCC_3$R[,1:10]
+```
+
+```{r}
+HNSCC_3$selectInitX()
+```
+
+```{r}
+HNSCC_3$optimizeInitProportions()
+```
+
+```{r}
+HNSCC_3$selectInitOmega()
+```
+
+```{r}
+HNSCC_3$optimizeInitBasis()
+```
+
+```{r}
+idx <- which(rownames(HNSCC_4$filtered_dataset)=="DAAM2")
+idx_2 <- which(rownames(HNSCC_4$filtered_dataset)=="CT69")
+idx_3 <- which(rownames(HNSCC_4$filtered_dataset)=="HOXA10")
+idx_4 <- which(rownames(HNSCC_4$filtered_dataset)=="SLC15A2")
+
+print(sqrt(sum((HNSCC_4$V_row[idx,] - t(HNSCC_4$S) %*% HNSCC_4$S  %*% HNSCC_4$V_row %*% t(HNSCC_4$R) %*% HNSCC_4$R)[idx,]^2)))
+print(sqrt(sum((HNSCC_4$V_row[idx_2,] - t(HNSCC_4$S) %*% HNSCC_4$S  %*% HNSCC_4$V_row %*% t(HNSCC_4$R) %*% HNSCC_4$R)[idx_2,]^2)))
+print(sqrt(sum((HNSCC_4$V_row[idx_3,] - t(HNSCC_4$S) %*% HNSCC_4$S  %*% HNSCC_4$V_row %*% t(HNSCC_4$R) %*% HNSCC_4$R)[idx_3,]^2)))
+print(sqrt(sum((HNSCC_4$V_row[idx_4,] - t(HNSCC_4$S) %*% HNSCC_4$S  %*% HNSCC_4$V_row %*% t(HNSCC_4$R) %*% HNSCC_4$R)[idx_4,]^2)))
+```
+
+
+```{r}
+toPlot <- data.frame(HNSCC_3$inits_statistics_X) %>% filter(X7 == 0)
+toPlot$neg_sum <- as.numeric(toPlot$X9) + as.numeric(toPlot$X10)
+toPlot <- toPlot %>% arrange(neg_sum)
+View(toPlot)
+#write.csv(toPlot,file = "HNSCC_3.csv")
+```
+
+```{r}
+obj[['cell_types']] <- 4
+```
+
+```{r}
+EXPERIMENT_ID <- "HNSCC_4"
+RES.DIR <- "results"
+```
+
+```{r}
+analysis_name <- paste0(EXPERIMENT_ID)
+
+obj[['path']] <- file.path(analysis_name)
+path_ <- file.path(RES.DIR, obj[['path']])
+
+i <- 1
+analysis_name <- paste0(analysis_name,"_",i)
+```
+
+
+```{r}
+HNSCC_4 <- SinkhornLinseed$new(dataset = EXPERIMENT_ID, 
+                                          path = path_, data = HNSCC_data,
+                                          analysis_name = analysis_name,
+                                          cell_types = obj[['cell_types']],
+                                          coef_hinge_H = obj[['coef_hinge_H']],
+                                          coef_hinge_W = obj[['coef_hinge_W']],
+                                          coef_pos_D_h = obj[['coef_pos_D_h']],
+                                          coef_pos_D_w = obj[['coef_pos_D_w']],
+                                          coef_der_X = obj[['coef_der_X']],
+                                          coef_der_Omega = obj[['coef_der_Omega']],
+                                          inner_iterations = obj[['inner_iterations']],
+                                          inner_iterations_Omega = obj[['inner_iterations']],
+                                          global_iterations = obj[['global_iterations']])
+HNSCC_4$selectTopGenes(8000)
+```
+
+```{r}
+HNSCC_4$scaleDataset(iterations = 1000)
+```
+
+
+```{r}
+HNSCC_4$getSvdProjectionsNew()
+```
+
+
+```{r}
+select_pairs <- 10
+V_row_ <- HNSCC_4$S %*% HNSCC_4$V_row %*% t(HNSCC_4$R)
+inits_statistics_add <- NULL
+markers_table <- toPlot[1:select_pairs,1:3]
+tmp <- apply(markers_table,1,function(markers){
+  genes_rows <- which(rownames(HNSCC_4$filtered_dataset) %in% markers)
+  X_genes <- HNSCC_4$new_points[genes_rows,]
+  left_points <- rownames(HNSCC_4$filtered_dataset[-genes_rows,])
+  for (gene in left_points) {
+     point <- HNSCC_4$new_points[which(rownames(HNSCC_4$filtered_dataset) == gene),]
+     X <- rbind(X_genes,point)
+     out <- tryCatch(solve(t(X),HNSCC_4$A)[,1], error = function(e) e)
+    if (!any(class(out) == "error")) {
+                
+        H <- X %*% HNSCC_4$R
+        D_h <- diag(as.vector(out))
+        D <- D_h * (HNSCC_4$M/HNSCC_4$N)
+        Omega <- HNSCC_4$Sigma %*% ginv(D %*% X)
+                  
+        new_error <- norm(V_row_ - Omega %*% D %*% X,"F")
+        new_lambda_error <- HNSCC_4$hinge(H) 
+        new_beta_error <- HNSCC_4$hinge(t(HNSCC_4$S) %*% Omega) 
+        new_d_error <- HNSCC_4$hinge(D)
+        new_total_error <- new_error + HNSCC_4$coef_hinge_H * new_lambda_error + HNSCC_4$coef_hinge_W * new_beta_error + new_d_error
+        
+        genes_ <- c(markers,gene)
+        neg_proportions <- sum(H < -1e-10) / (HNSCC_4$N*HNSCC_4$cell_types)
+        neg_basis <- sum(t(HNSCC_4$S) %*% Omega < -1e-10) / (HNSCC_4$M*HNSCC_4$cell_types)
+        inits_statistics_add <<- rbind(inits_statistics_add,c(genes_,new_error,new_lambda_error,new_beta_error,
+                  new_d_error,new_total_error,neg_proportions,neg_basis))
+    }
+  }
+})
+View(inits_statistics_add)
+```
+
+```{r}
+toPlot <- data.frame(inits_statistics_add) %>% filter(V8 == 0)
+toPlot$neg_sum <- as.numeric(toPlot$V10) + as.numeric(toPlot$V11)
+toPlot <- toPlot %>% arrange(neg_sum)
+View(toPlot)
+write.csv(toPlot,file = "HNSCC_4.csv")
+```
+
+
+
+```{r}
+toPlot <- data.frame(HNSCC_3$inits_statistics_X)
+toPlot$X13 <- as.numeric(toPlot$X13)*100
+toPlot$X14 <- as.numeric(toPlot$X14)*100
+toPlot$variable <- "X"
+median_X <- median(toPlot$X14)
+min_X <- min(toPlot$X14)
+
+toPlotE <- data.frame(HNSCC_3$inits_statistics_Omega)
+toPlotE$X13 <- as.numeric(toPlotE$X13)*100
+toPlotE$X14 <- as.numeric(toPlotE$X14)*100
+toPlotE$variable <- "Omega"
+median_Omega <- median(toPlotE$X13)
+
+toPlot <- rbind(toPlot,toPlotE)
+
+ggplot(toPlot,aes(X13,X14,color=variable)) + geom_point() + 
+  xlab("Negative proportions, %") + ylab("Negative basis, %") + theme_minimal() +
+  geom_hline(yintercept=median(median_X, linetype="dashed")) +
+  geom_vline(xintercept=median(median_Omega, linetype="dashed")) + 
+  coord_cartesian(x=c(0,100),y=c(0,100)) +
+  annotate(geom = "text", x = median_Omega, y = 100, 
+    label = paste(round(median_Omega,2),"%"), hjust = -0.1, vjust = 1, size = 4) +
+  annotate(geom = "text", x = 100, y = median_X, 
+    label = paste(round(median_X,2),"%"), hjust = 1, vjust = -0.2, size = 4) +
+  annotate(geom = "text", x = 100, y = 100, 
+    label = round(median_X/median_Omega,2), hjust = 1, vjust = 1, size = 4)
+  
+```
+
+```{r}
+toPlot <- data.frame(HNSCC_3$inits_statistics_X) %>% filter(X11 == 0)
+toPlot$X13 <- as.numeric(toPlot$X13)*100
+toPlot$X14 <- as.numeric(toPlot$X14)*100
+toPlot$variable <- "X"
+median_X <- median(toPlot$X14)
+min_X <- min(toPlot$X14)
+
+toPlotE <- data.frame(HNSCC_3$inits_statistics_Omega) %>% filter(X11 == 0)
+toPlotE$X13 <- as.numeric(toPlotE$X13)*100
+toPlotE$X14 <- as.numeric(toPlotE$X14)*100
+toPlotE$variable <- "Omega"
+median_Omega <- median(toPlotE$X13)
+
+toPlot <- rbind(toPlot,toPlotE)
+
+ggplot(toPlot,aes(X13,X14,color=variable)) + geom_point() + 
+  xlab("Negative proportions, %") + ylab("Negative basis, %") + theme_minimal() +
+  geom_hline(yintercept=median(median_X, linetype="dashed")) +
+  geom_vline(xintercept=median(median_Omega, linetype="dashed")) + 
+  coord_cartesian(x=c(0,100),y=c(0,100)) +
+  annotate(geom = "text", x = median_Omega, y = 100, 
+    label = paste(round(median_Omega,2),"%"), hjust = -0.1, vjust = 1, size = 4) +
+  annotate(geom = "text", x = 100, y = median_X, 
+    label = paste(round(median_X,2),"%"), hjust = 1, vjust = -0.2, size = 4) +
+  annotate(geom = "text", x = 100, y = 100, 
+    label = round(median_X/median_Omega,2), hjust = 1, vjust = 1, size = 4)
+  
+```
+
+
+```{r}
+View(HNSCC_3$inits_statistics_Omega)
+```
+
