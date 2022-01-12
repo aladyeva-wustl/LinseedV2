@@ -751,7 +751,7 @@ SinkhornLinseed <- R6Class(
                                                     "beta_error","D_w_error","total_error",
                                                     "neg_proportions","neg_basis")
       }
-      toPlot <- melt(data.frame(self$errors_statistics[,c("iteration",filter_var,variables)]) %>% filter("{filter_var}"==1),id.vars="iteration",measure.vars = variables)
+      toPlot <- melt(data.frame(self$errors_statistics[,c("iteration",filter_var,variables)]) %>% filter(.data[[filter_var]]==1),id.vars="iteration",measure.vars = variables)
       plt <- ggplot(toPlot,aes(x=iteration,y=value,color=variable)) +
       geom_point(size=0.2) +
       geom_line() + theme_minimal()
