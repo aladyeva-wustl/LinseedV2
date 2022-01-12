@@ -396,7 +396,7 @@ SinkhornLinseed <- R6Class(
                   self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,
                   new_d_error,new_total_error,neg_proportions,neg_basis,(new_total_error < total_init_error)))
 
-                  if (all(out<0)) {
+                  if (all(out<0)) { 
                     pb$tick()
                     next
                   }
@@ -591,7 +591,7 @@ SinkhornLinseed <- R6Class(
       self$D_w <-  self$init_D_w
       self$Omega <- self$init_Omega_
       
-      self$D_h <- diag((ginv(t(self$X)) %*% self$A %*% t(self$unity))[,1]) #diag((ginv(self$X %*% t(self$X)) %*% self$unity)[,1])
+      self$D_h <- diag((ginv(t(self$X)) %*% self$A %*% t(self$unity))[,1])
       self$H_ <- self$X %*% self$R
       self$full_proportions <- self$D_h %*% self$H_
       count_neg_props <- sum(self$full_proportions<0)
