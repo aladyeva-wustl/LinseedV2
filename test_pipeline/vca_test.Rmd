@@ -1,0 +1,225 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+restored <- simulation_3_no_noise$new_points %*% simulation_3_no_noise$R
+p <- simulation_3_no_noise$cell_types
+
+x <- t(simulation_3_no_noise$new_points)
+u <- rowMeans(x)
+y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
+
+indice <- rep(0, p)
+A <- matrix(0, nrow=p, ncol=p)
+A[p, 1] <- 1
+for (i in 1:p) {
+        w <- matrix(runif(p), ncol=1)
+        f <- w - A %*% pseudoinverse(A) %*% w;
+        f <- f / sqrt(sum(f^2))
+
+        v <- t(f) %*% y
+        indice[i] <- which.max(abs(v))
+        A[, i] <- y[, indice[i]]
+}
+Ae <- restored[indice, ]
+new_X <- Ae %*% t(simulation_3_no_noise$R)
+```
+
+```{r}
+N <- ncol(simulation_3_no_noise$V_row)
+M <- nrow(simulation_3_no_noise$V_row)
+D_h <- N * matrix(c(1/3,1/3,1/3),nrow=3,ncol=1)
+D <- D_h * (M/N)
+
+V_row_ <- simulation_3_no_noise$S %*% simulation_3_no_noise$V_row %*% t(simulation_3_no_noise$R)
+new_Omega <- V_row_ %*% ginv(diag(D[,1]) %*% new_X)
+new_Omega[1,] <- 1/sqrt(M)
+```
+
+```{r}
+H_ <- new_X %*% simulation_3_no_noise$R
+full_proportions <- diag(D_h[,1]) %*% H_
+count_neg_props <- round(sum(full_proportions<0)/(simulation_3_no_noise$cell_types*N),4)*100
+
+W_ <- t(simulation_3_no_noise$S) %*% new_Omega %*% diag(D[,1]) #row normalized
+count_neg_basis <- round(sum(W_<0)/(simulation_3_no_noise$cell_types*M),4)*100
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_no_noise$V_row %*% t(simulation_3_no_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(new_X) <- c("X","Y","Z")
+plt1 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(new_X), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(count_neg_props,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_no_noise$S %*% simulation_3_no_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(new_Omega) <- c("X","Y","Z")
+plt2 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(new_Omega)), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(count_neg_basis,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r, fig.width=8, fig.height=3}
+grid.arrange(plt1,plt2,nrow=1)
+```
+
+
+```{r}
+restored <- simulation_3_noise$new_points %*% simulation_3_noise$R
+p <- simulation_3_noise$cell_types
+
+x <- t(simulation_3_noise$new_points)
+u <- rowMeans(x)
+y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
+
+#x <- t(simulation_3_noise$new_points)[2:3,]
+#c <- sqrt(max(colSums(x^2)))
+#y <- rbind(x, rep(c, ncol(x)))
+
+indice <- rep(0, p)
+A <- matrix(0, nrow=p, ncol=p)
+A[p, 1] <- 1
+for (i in 1:p) {
+        w <- matrix(runif(p), ncol=1)
+        f <- w - A %*% pseudoinverse(A) %*% w;
+        f <- f / sqrt(sum(f^2))
+
+        v <- t(f) %*% y
+        indice[i] <- which.max(abs(v))
+        A[, i] <- y[, indice[i]]
+}
+Ae <- restored[indice, ]
+new_X <- Ae %*% t(simulation_3_noise$R)
+```
+
+```{r}
+N <- ncol(simulation_3_noise$V_row)
+M <- nrow(simulation_3_noise$V_row)
+D_h <- N * matrix(c(1/3,1/3,1/3),nrow=3,ncol=1)
+D <- D_h * (M/N)
+
+V_row_ <- simulation_3_noise$S %*% simulation_3_noise$V_row %*% t(simulation_3_noise$R)
+new_Omega <- V_row_ %*% ginv(diag(D[,1]) %*% new_X)
+new_Omega[1,] <- 1/sqrt(M)
+```
+
+```{r}
+H_ <- new_X %*% simulation_3_noise$R
+full_proportions <- diag(D_h[,1]) %*% H_
+count_neg_props <- round(sum(full_proportions<0)/(simulation_3_noise$cell_types*N),4)*100
+
+W_ <- t(simulation_3_noise$S) %*% new_Omega %*% diag(D[,1])
+count_neg_basis <- round(sum(W_<0)/(simulation_3_noise$cell_types*M),4)*100
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_noise$V_row %*% t(simulation_3_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(new_X) <- c("X","Y","Z")
+plt1 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(new_X), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(count_neg_props,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_noise$S %*% simulation_3_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(new_Omega) <- c("X","Y","Z")
+plt2 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(new_Omega)), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(count_neg_basis,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r, fig.width=8, fig.height=3}
+grid.arrange(plt1,plt2,nrow=1)
+```
+
+```{r}
+restored <- simulation_3_high_noise$new_points %*% simulation_3_high_noise$R
+p <- simulation_3_high_noise$cell_types
+
+x <- t(simulation_3_high_noise$new_points)
+u <- rowMeans(x)
+y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
+
+indice <- rep(0, p)
+A <- matrix(0, nrow=p, ncol=p)
+A[p, 1] <- 1
+for (i in 1:p) {
+        w <- matrix(runif(p), ncol=1)
+        f <- w - A %*% pseudoinverse(A) %*% w;
+        f <- f / sqrt(sum(f^2))
+
+        v <- t(f) %*% y
+        indice[i] <- which.max(abs(v))
+        A[, i] <- y[, indice[i]]
+}
+Ae <- restored[indice, ]
+new_X <- Ae %*% t(simulation_3_high_noise$R)
+```
+
+```{r}
+N <- ncol(simulation_3_high_noise$V_row)
+M <- nrow(simulation_3_high_noise$V_row)
+D_h <- N * matrix(c(1/3,1/3,1/3),nrow=3,ncol=1)
+D <- D_h * (M/N)
+
+V_row_ <- simulation_3_high_noise$S %*% simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R)
+new_Omega <- V_row_ %*% ginv(diag(D[,1]) %*% new_X)
+new_Omega[1,] <- 1/sqrt(M)
+```
+
+```{r}
+H_ <- new_X %*% simulation_3_high_noise$R
+full_proportions <- diag(D_h[,1]) %*% H_
+count_neg_props <- round(sum(full_proportions<0)/(simulation_3_high_noise$cell_types*N),4)*100
+
+W_ <- t(simulation_3_high_noise$S) %*% new_Omega %*% diag(D[,1])
+count_neg_basis <- round(sum(W_<0)/(simulation_3_high_noise$cell_types*M),4)*100
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_high_noise$V_row %*% t(simulation_3_high_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(new_X) <- c("X","Y","Z")
+plt1 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(new_X), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(count_neg_props,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_high_noise$S %*% simulation_3_high_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(new_Omega) <- c("X","Y","Z")
+plt2 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(new_Omega)), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(count_neg_basis,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r, fig.width=9, fig.height=3}
+grid.arrange(plt1,plt2,nrow=1)
+```
+
+
+
+
+    
+    
