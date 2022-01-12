@@ -743,40 +743,19 @@ SinkhornLinseed <- R6Class(
       
     },
     
-    plotErrors = function(y_limit = NULL) {
-      data_toPlot <- self$errors_statistics
-      toPlot <- as.data.frame(data_toPlot[,c("idx","total")])
-      colnames(toPlot) <- c("idx","error")
-      toPlot$type <- "Total"
-      toPlotE <- as.data.frame(data_toPlot[,c("idx","deconv")])
-      colnames(toPlotE) <- c("idx","error")
-      toPlotE$type <- "Deconv"
-      toPlot <- rbind(toPlot,toPlotE)
-      toPlotE <- as.data.frame(data_toPlot[,c("idx","lambda")])
-      colnames(toPlotE) <- c("idx","error")
-      toPlotE$type <- "Lambda"
-      toPlot <- rbind(toPlot,toPlotE)
-      toPlotE <- as.data.frame(data_toPlot[,c("idx","beta")])
-      colnames(toPlotE) <- c("idx","error")
-      toPlotE$type <- "Beta"
-      toPlot <- rbind(toPlot,toPlotE)
-      toPlotE <- as.data.frame(data_toPlot[,c("idx","d_h")])
-      colnames(toPlotE) <- c("idx","error")
-      toPlotE$type <- "D_h"
-      toPlot <- rbind(toPlot,toPlotE)
-      toPlotE <- as.data.frame(data_toPlot[,c("idx","d_w")])
-      colnames(toPlotE) <- c("idx","error")
-      toPlotE$type <- "D_w"
-      toPlot <- rbind(toPlot,toPlotE)
-      
-      plt <- ggplot(data=toPlot, aes(x=idx, y=error,color=type)) +
-        geom_line()  +
-        #annotate("text",x=Inf,y=Inf,label=paste("Minimal error", min_error), hjust=1.5, vjust=10) + 
-        theme_bw() + xlab("Iteration") + ylab("Error")
-      
-      if (!is.null(y_limit)) {
-        plt <- plt + coord_cartesian(ylim = c(0,y_limit))
+    plotErrors = function(filter_var="is_Omega",
+    variables = c("deconv_error","lamdba_error","beta_error","D_h_error","D_w_error","total_error")) {
+      if (is.null(colnames(self$errors_statistics))) {
+        colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
+                                                    "deconv_error","lamdba_error","D_h_error",
+                                                    "beta_error","D_w_error","total_error",
+                                                    "neg_proportions","neg_basis")
       }
+      toPlot <- melt(data.frame(self$errors_statistics[,c("iteration",filter_var,variables)]) %>% filter("{filter_var}"==1),id.vars="iteration",measure.vars = variables)
+      plt <- ggplot(toPlot,aes(x=iteration,y=value,color=variable)) +
+      geom_point(size=0.2) +
+      geom_line() + theme_minimal()
+      
       plt
     },
     saveResults = function() {
