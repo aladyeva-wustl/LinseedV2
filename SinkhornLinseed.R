@@ -279,237 +279,71 @@ SinkhornLinseed <- R6Class(
       self$new_samples_points <- t(self$S %*% self$V_column)
     },
     
-    selectInitX = function() {
-      constraints_ = F
-      cnt_ <- 0
-      cnt_proportions <- 0
-      cnt_coefficients <- 0
-      select_k <- self$cell_types
-      limit_ <- select_k*nrow(self$V_row)
-      while (!constraints_) {
-        cnt_ <- cnt_ + 1
-        if (cnt_ > limit_) {
-          self$init_X <- NULL
-          stop(paste0("Couldn't find initial points"))
-        }
-        
-        self$init_proportions_rows <- sample(nrow(self$V_row), select_k)
-        self$init_proportions_ <- self$V_row[self$init_proportions_rows, ]
-        self$init_X <- self$init_proportions_ %*% t(self$R)
-        rownames(self$init_X) <- paste('Cell type', 1:self$cell_types)
-        
-        out <- tryCatch(solve(t(self$init_X),self$A)[,1], error = function(e) e)
-        if (!any(class(out) == "error")) {
-          if (all(out>=0)) {
-            constraints_ <- T
-            self$init_H <- self$init_X %*% self$R
-            self$init_D_h <- diag(out)
-            self$init_D <- self$init_D_h * (self$M/self$N)
-            self$init_Omega <- self$Sigma%*%ginv(self$init_D%*%self$init_X)
-          }
-        }
-      }
-    },
-
     selectInitOmega = function() {
-      constraints_ = F
-      cnt_ <- 0
-      select_k <- self$cell_types
-      limit_ <- select_k*ncol(self$V_column)
-      while (!constraints_) {
-        cnt_ <- cnt_ + 1
-        if (cnt_ > limit_) {
-          self$init_Omega <- NULL
-          stop(paste0("Couldn't find initial points"))
-        }
-        self$init_basis_cols <- sample(ncol(self$V_column), select_k)
-        self$init_basis_ <- self$V_column[, self$init_basis_cols]
-        self$init_Omega <- self$S %*% self$init_basis_
-        colnames(self$init_Omega) <- paste('Cell type', 1:self$cell_types)
-        out <- tryCatch(solve(self$init_Omega,self$B)[,1], error = function(e) e)
-        if (!any(class(out) == "error")) {
-          if (all(out>=0)) {
-            constraints_ <- T
-            self$init_W <- t(self$S) %*% self$init_Omega
-            self$init_D_w <- diag(out)
-            self$init_D <- self$init_D_w
-            self$init_X <- ginv(self$init_Omega%*%self$init_D) %*% self$Sigma
-          }
-        } 
-        }                                                
+      restored <- t(self$S) %*% t(self$new_samples_points)
+      p <- self$cell_types
+      x <- t(self$new_samples_points)
+      u <- rowMeans(x)
+      y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
+      
+      indice <- rep(0, p)
+      A <- matrix(0, nrow=p, ncol=p)
+      A[p, 1] <- 1
+      for (i in 1:p) {
+        w <- matrix(runif(p), ncol=1)
+        f <- w - A %*% pseudoinverse(A) %*% w
+        f <- f / sqrt(sum(f^2))
+
+        v <- t(f) %*% y
+        indice[i] <- which.max(abs(v))
+        A[, i] <- y[, indice[i]]
+      }
+      Ae <- restored[, indice]
+      ## Omega
+      self$init_Omega <- self$S %*% Ae
+
+      ## D
+      N <- ncol(self$V_row)
+      M <- nrow(self$V_row)
+      self$init_D_w <- ginv(self$init_Omega) %*% self$B
+      self$init_D_h <- self$init_D_w * (N/M)
+      
+      ## X
+      V__ <- self$S %*% self$V_row %*% t(self$R)
+      self$init_X <- ginv(self$init_Omega %*% diag(self$init_D_w[,1])) %*% V__
     },
 
-    
-    optimizeInitProportions = function(iterations_=10000) {
-      if (is.null(self$init_X)) {
-        self$selectInitX()
+    selectInitX = function() {
+      restored <- self$new_points %*% self$R
+      p <- self$cell_types
+
+      x <- t(self$new_points)
+      u <- rowMeans(x)
+      y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
+
+      indice <- rep(0, p)
+      A <- matrix(0, nrow=p, ncol=p)
+      A[p, 1] <- 1
+      for (i in 1:p) {
+        w <- matrix(runif(p), ncol=1)
+        f <- w - A %*% pseudoinverse(A) %*% w;
+        f <- f / sqrt(sum(f^2))
+
+        v <- t(f) %*% y
+        indice[i] <- which.max(abs(v))
+        A[, i] <- y[, indice[i]]
       }
-      self$inits_statistics_X <- NULL
-
-      new_init_X <- self$init_X
-      new_init_H <- self$init_H
-      new_D_h <- self$init_D_h
-      new_D <- self$init_D
-      new_init_Omega <- self$init_Omega
-
-      V_row_ <- self$S %*% self$V_row %*% t(self$R)
-      
-      init_error <- norm(V_row_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
-      lambda_error <- self$hinge(self$init_H) 
-      beta_error <- self$hinge(t(self$S) %*% self$init_Omega)
-      d_error <- self$hinge(self$init_D)
-      total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
-      
-      print(paste("Init error:",total_init_error))
-
-      genes_ <- rownames(self$filtered_dataset[self$init_proportions_rows,])
-      neg_proportions <- sum(self$init_H < -1e-10) / (self$N*self$cell_types)
-      neg_basis <- sum(t(self$S) %*% self$init_Omega < -1e-10) / (self$M*self$cell_types)
-      self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,init_error,lambda_error,
-      beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
-
-      pb <- progress_bar$new(
-        format = "Optimizing X [:bar] :percent eta: :eta",
-        total = iterations_, clear = FALSE, width= 60)
-      
-      for (itr_ in 1:iterations_){
-          try_points <- sample(nrow(self$V_row),self$cell_types)
-            
-            X <- self$V_row[try_points,] %*% t(self$R)
-            out <- tryCatch(solve(t(X),self$A)[,1], error = function(e) e)
-              if (!any(class(out) == "error")) {
-                
-                  H <- X %*% self$R
-                  D_h <- diag(as.vector(out))
-                  D <- D_h * (self$M/self$N)
-                  Omega <- self$Sigma %*% ginv(D %*% X)
-                  
-                  new_error <- norm(V_row_ - Omega %*% D %*% X,"F")
-                  new_lambda_error <- self$hinge(H) 
-                  new_beta_error <- self$hinge(t(self$S) %*% Omega) 
-                  new_d_error <- self$hinge(D)
-                  new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
-
-                  genes_ <- rownames(self$filtered_dataset[try_points,])
-                  neg_proportions <- sum(H < -1e-10) / (self$N*self$cell_types)
-                  neg_basis <- sum(t(self$S) %*% Omega < -1e-10) / (self$M*self$cell_types)
-                  self$inits_statistics_X <- rbind(self$inits_statistics_X,c(genes_,new_error,new_lambda_error,new_beta_error,
-                  new_d_error,new_total_error,neg_proportions,neg_basis,(new_total_error < total_init_error)))
-
-                  if (all(out<0)) { 
-                    pb$tick()
-                    next
-                  }
-                  
-                  if (new_total_error < total_init_error) {
-                    
-                    new_init_X <- X
-                    new_init_H <- H
-                    new_D_h <- D_h
-                    new_D <- D
-                    new_init_Omega <- Omega
-                    
-                    total_init_error <- new_total_error
-                  }
-              }
-              pb$tick()
-            }
-
-      print(total_init_error)
-      
-      self$init_X <- new_init_X
-      self$init_H <- new_init_H
-      
-      self$init_D_h <- new_D_h
-      self$init_D <- new_D
-      self$init_Omega <- new_init_Omega
-      
-    },
-
-    optimizeInitBasis = function(iterations_=10000) {
-      if (is.null(self$init_Omega)) {
-        self$selectInitOmega()
-      }
-      self$inits_statistics_Omega <- NULL
-
-      new_init_X <- self$init_X
-      new_init_W <- self$init_W
-      new_D_w <- self$init_D_w
-      new_D <- self$init_D
-      new_init_Omega <- self$init_Omega
-
-      V_row_ <- self$S %*% self$V_row %*% t(self$R)
-
-      init_error <- norm(V_row_ - self$init_Omega %*% self$init_D %*% self$init_X,"F")
-      lambda_error <- self$hinge(new_init_X %*% self$R)
-      beta_error <- self$hinge(new_init_W)
-      d_error <- self$hinge(self$init_D)
-      total_init_error <- init_error + self$coef_hinge_H * lambda_error + self$coef_hinge_W * beta_error + d_error
-      
-      print(paste("Init error:", total_init_error))
-
-      samples_ <- colnames(self$filtered_dataset[,self$init_basis_cols])
-      neg_proportions <- sum(self$init_X %*% self$R < -1e-10) / (self$N*self$cell_types)
-      neg_basis <- sum(new_init_W < -1e-10) / (self$M*self$cell_types)
-      self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,init_error,lambda_error,
-      beta_error,d_error,total_init_error,neg_proportions,neg_basis,"TRUE"))
-
-      pb <- progress_bar$new(
-        format = "Optimizing Omega [:bar] :percent eta: :eta",
-        total = iterations_, clear = FALSE, width= 60)
-
-      for (itr_ in 1:iterations_){
-          try_points <- sample(ncol(self$V_column),self$cell_types)
-          
-          Omega <- self$S %*% self$V_column[,try_points]
-          out <- tryCatch(solve(Omega,self$B)[,1], error = function(e) e)
-              if (!any(class(out) == "error")) {
-                
-                  W <- t(self$S) %*% Omega
-                  D_w <- diag(as.vector(out))
-                  D <- D_w
-                  X <- ginv(Omega %*% D) %*% self$Sigma
-                  
-                  new_error <- norm(V_row_ - Omega %*% D %*% X,"F")
-                  new_lambda_error <- self$hinge(X %*% self$R) 
-                  new_beta_error <- self$hinge(W) 
-                  new_d_error <- self$hinge(D)
-                  new_total_error <- new_error + self$coef_hinge_H * new_lambda_error + self$coef_hinge_W * new_beta_error + new_d_error
-
-                  samples_ <- colnames(self$filtered_dataset[,try_points])
-                  neg_proportions <- sum(X %*% self$R < -1e-10) / (self$N*self$cell_types)
-                  neg_basis <- sum(W < -1e-10) / (self$M*self$cell_types)
-                  self$inits_statistics_Omega <- rbind(self$inits_statistics_Omega,c(samples_,new_error,new_lambda_error,
-                  new_beta_error,new_d_error,new_total_error,neg_proportions,neg_basis,
-                  (new_total_error < total_init_error)))
-                  
-                  
-                  if (all(out<0)) {
-                    pb$tick()
-                    next
-                  }
-                  
-                  if (new_total_error < total_init_error) {
-                    
-                    new_init_X <- X
-                    new_init_W <- W
-                    new_D_w <- D_w
-                    new_D <- D
-                    new_init_Omega <- Omega
-                    
-                    total_init_error <- new_total_error
-                  }
-          }
-          pb$tick()
-      }
-
-      print(total_init_error)
-      self$init_X <- new_init_X
-      self$init_W <- new_init_W
-      
-      self$init_D_w <- new_D_w
-      self$init_D <- new_D
-      self$init_Omega <- new_init_Omega
+      Ae <- restored[indice, ]
+      ## X
+      self$init_X <- Ae %*% t(self$R)
+      ## D
+      N <- ncol(self$V_row)
+      M <- nrow(self$V_row)
+      self$init_D_h <- ginv(t(self$init_X)) %*% self$A
+      self$init_D_w <- self$init_D_h * (M/N)
+      ## Omega
+      V__ <- self$S %*% self$V_row %*% t(self$R)
+      self$init_Omega <- V__ %*% ginv(diag(self$init_D_w[,1]) %*% self$init_X)
 
     },
     
