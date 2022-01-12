@@ -403,10 +403,45 @@ SinkhornLinseed <- R6Class(
       }
       return(h)
     },
+
+    plotPoints2D = function(points="init") {
+      if !(points %in% c("init","current")) {
+        stop("Allowed values for points are 'init', 'current'")
+      }
+
+      if (points == "init") {
+        X <- self$init_X
+        Omega <- self$init_Omega
+      }
+      if (points == "current") {
+        X <- self$X
+        Omega <- self$Omega
+      }
+
+      ## plot X
+      toPlot <- as.data.frame(self$V_row %*% t(self$R))
+      colnames(toPlot) <- c("X","Y","Z")
+      colnames(X) <- c("X","Y","Z")
+      pltX <- ggplot(toPlot, aes(x=Y, y=Z)) +
+        geom_point() + 
+        geom_polygon(data=as.data.frame(X), fill=NA, color = "green") +
+        annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (self$cell_types*N),4)*100,"%"), vjust=1, hjust=1) +
+        theme_minimal()
+        
+      toPlot <- as.data.frame(t(self$S %*% self$V_column))
+      colnames(toPlot) <- c("X","Y","Z")
+      rownames(Omega) <- c("X","Y","Z")
+      pltOmega <- ggplot(toPlot, aes(x=Y, y=Z)) +
+        geom_point() + 
+        geom_polygon(data=as.data.frame(t(Omega)), fill=NA, color = "green") +
+        annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (self$cell_types*M),4)*100,"%"), vjust=1, hjust=1) +
+        theme_minimal()
+      
+      grid.arrange(pltX,pltOmega,nrow=1)
+    },
     
     runOptimization = function(debug=FALSE, idx = NULL) {
       
-      B_2 <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
       
       self$errors_statistics <- NULL
       unity_mtx_ <- self$unity %*% t(self$unity)
