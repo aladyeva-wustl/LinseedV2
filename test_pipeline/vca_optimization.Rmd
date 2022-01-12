@@ -1,0 +1,437 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+hinge_der_proportions = function(H,R){
+      m <- nrow(H)
+      n <- ncol(H)
+      der_R <- list()
+      for (c in 1:m) {
+        der_loc_R <- matrix(0,nrow=m,ncol=n)
+        for (i in 1:m) {
+          for (j in 1:n) {
+            if (H[i,j] < -1e-10) {
+              der_loc_R[i,j] <- -R[c,j]
+            }
+          }
+        }
+        der_R[[c]] <- der_loc_R
+      }
+      res <- matrix(0,nrow=m,ncol=m)
+      for (c in 1:m) {
+        mtx <- der_R[[c]]
+        res[,c] <- apply(mtx,1,sum)
+      }
+      res[,1] <- 0
+      res
+    }
+    
+    hinge_der_basis = function(W,S){
+      
+      n <- ncol(W)
+      res <- matrix(0,nrow=n,ncol=n)
+      
+      for (j in 1:n) {
+        if (any(W[,j] < -1e-10)) {
+          res[,j] <- -apply(t(S)[which(W[,j] < -1e-10),,drop=F],2,sum)
+        }
+      }
+      res[1,] <- 0
+      res
+    }
+```
+
+```{r}
+simulation_3_noise$coef_hinge_H <- 100
+simulation_3_noise$coef_hinge_W <- 50
+simulation_3_noise$coef_pos_D_h <- 20
+simulation_3_noise$coef_pos_D_w <- 20
+```
+
+```{r}
+simulation_3_noise$coef_der_X <- 1e-06
+simulation_3_noise$coef_der_Omega <- 1e-09
+```
+
+```{r}
+restored <- t(simulation_3_noise$S) %*% t(simulation_3_noise$new_samples_points)
+p <- simulation_3_noise$cell_types
+
+x <- t(simulation_3_noise$new_samples_points)
+u <- rowMeans(x)
+y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
+
+indice <- rep(0, p)
+A <- matrix(0, nrow=p, ncol=p)
+A[p, 1] <- 1
+for (i in 1:p) {
+        w <- matrix(runif(p), ncol=1)
+        f <- w - A %*% pseudoinverse(A) %*% w
+        f <- f / sqrt(sum(f^2))
+
+        v <- t(f) %*% y
+        indice[i] <- which.max(abs(v))
+        A[, i] <- y[, indice[i]]
+}
+Ae <- restored[, indice]
+simulation_3_noise$init_Omega <- simulation_3_noise$S %*% Ae
+```
+
+```{r}
+init_basis_cols <- sample(ncol(simulation_3_noise$V_column), simulation_3_noise$cell_types)
+init_basis_ <- simulation_3_noise$V_column[, init_basis_cols]
+simulation_3_noise$init_Omega <- simulation_3_noise$S %*% init_basis_
+```
+
+```{r}
+N <- ncol(simulation_3_noise$V_row)
+M <- nrow(simulation_3_noise$V_row)
+#simulation_3_noise$init_D_w <- ginv(simulation_3_noise$init_Omega) %*% simulation_3_noise$B #D_h * (M/N)
+#simulation_3_noise$init_D_h <- simulation_3_noise$init_D_w * (N/M)
+
+simulation_3_noise$init_D_h <- matrix(rowSums(test_data_noise$generated_data$proportions),nrow = simulation_3_noise$cell_types,ncol=1)
+simulation_3_noise$init_D_w <- simulation_3_noise$init_D_h * (M/N)
+
+
+```
+
+
+
+```{r}
+
+V_row_ <- simulation_3_noise$S %*% simulation_3_noise$V_row %*% t(simulation_3_noise$R)
+simulation_3_noise$init_X <- ginv(simulation_3_noise$init_Omega %*% diag(simulation_3_noise$init_D_w[,1])) %*% V_row_
+simulation_3_noise$init_X[,1] <- 1/sqrt(N)
+```
+
+
+```{r}
+B_2 <-
+  matrix(
+    apply(simulation_3_noise$S, 1, sum),
+    ncol = 1,
+    nrow = simulation_3_noise$cell_types
+  )
+simulation_3_noise$errors_statistics <- NULL
+
+unity_mtx_ <-
+  simulation_3_noise$unity %*% t(simulation_3_noise$unity)
+V__ <-
+  simulation_3_noise$S %*% simulation_3_noise$V_row %*% t(simulation_3_noise$R)
+N <- ncol(simulation_3_noise$V_row)
+M <- nrow(simulation_3_noise$V_row)
+
+simulation_3_noise$X <-  simulation_3_noise$init_X
+simulation_3_noise$D_w <-  simulation_3_noise$init_D_w
+simulation_3_noise$Omega <-
+  simulation_3_noise$init_Omega
+
+simulation_3_noise$D_h <- simulation_3_noise$init_D_h
+simulation_3_noise$H_ <-
+  simulation_3_noise$X %*% simulation_3_noise$R
+simulation_3_noise$full_proportions <-
+  diag(simulation_3_noise$D_h[,1]) %*% simulation_3_noise$H_
+count_neg_props <-
+  sum(simulation_3_noise$full_proportions < -1e-10)
+
+simulation_3_noise$W_ <-
+  t(simulation_3_noise$S) %*% simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1])
+count_neg_basis <- sum(simulation_3_noise$W_ < -1e-10)
+
+cnt <- 0
+
+error_ <-
+  norm(
+    V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X,
+    "F"
+  )^2
+lambda_error <-
+  simulation_3_noise$coef_hinge_H * simulation_3_noise$hinge(simulation_3_noise$X %*% simulation_3_noise$R)
+beta_error <-
+  simulation_3_noise$coef_hinge_W * simulation_3_noise$hinge(t(simulation_3_noise$S) %*% simulation_3_noise$Omega)
+D_h_error <-
+  simulation_3_noise$coef_pos_D_h * norm(t(simulation_3_noise$X)%*%simulation_3_noise$D_h-simulation_3_noise$A,"F")^2
+D_w_error <-
+  simulation_3_noise$coef_pos_D_w * norm(simulation_3_noise$Omega%*%simulation_3_noise$D_w-simulation_3_noise$B,"F")^2
+prev_error <-
+  error_ + lambda_error + beta_error + D_h_error + D_w_error
+
+simulation_3_noise$errors_statistics <-
+  rbind(
+    simulation_3_noise$errors_statistics,
+    c(
+      cnt,
+      0,
+      1,
+      1,
+      1,
+      error_,
+      lambda_error,
+      D_h_error,
+      beta_error,
+      D_w_error,
+      prev_error,
+      count_neg_props,
+      count_neg_basis
+    )
+  )
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_noise$V_row %*% t(simulation_3_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(simulation_3_noise$init_X) <- c("X","Y","Z")
+plt1 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(simulation_3_noise$init_X), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (simulation_3_noise$cell_types*N),4)*100,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_noise$S %*% simulation_3_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(simulation_3_noise$init_Omega) <- c("X","Y","Z")
+plt2 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(simulation_3_noise$init_Omega)), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (simulation_3_noise$cell_types*M),4)*100,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r, fig.width=8, fig.height=3}
+grid.arrange(plt1,plt2,nrow=1)
+```
+
+
+```{r}
+simulation_3_noise$global_iterations <- 1000
+
+pb <- progress_bar$new(
+        format = "Optimization [:bar] :percent eta: :eta",
+        total = simulation_3_noise$global_iterations, clear = FALSE, width= 60)
+for (t in (1:simulation_3_noise$global_iterations)) {
+  der_X <- -2*(t(diag(simulation_3_noise$D_w[,1])) %*% t(simulation_3_noise$Omega) %*% (V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X))
+  der_X <- der_X + simulation_3_noise$coef_hinge_H * hinge_der_proportions(simulation_3_noise$X %*% simulation_3_noise$R, simulation_3_noise$R) + simulation_3_noise$coef_pos_D_h * simulation_3_noise$D_h %*% t(t(simulation_3_noise$X)%*%simulation_3_noise$D_h-simulation_3_noise$A)
+  der_X_f <- der_X #/ sqrt(sum(der_X^2))
+  der_X_f[,1] <- 0
+  simulation_3_noise$X <- simulation_3_noise$X - (simulation_3_noise$coef_der_X*der_X_f)
+
+  simulation_3_noise$H_ <- simulation_3_noise$X %*% simulation_3_noise$R
+  
+  simulation_3_noise$full_proportions <- diag(simulation_3_noise$D_h[,1]) %*% simulation_3_noise$H_
+  count_neg_props <- sum(simulation_3_noise$full_proportions < -1e-10)
+  
+  error_ <- norm(V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X,"F")^2
+  lambda_error <- simulation_3_noise$coef_hinge_H * simulation_3_noise$hinge(simulation_3_noise$X %*% simulation_3_noise$R)
+  beta_error <- simulation_3_noise$coef_hinge_W * simulation_3_noise$hinge(t(simulation_3_noise$S) %*% simulation_3_noise$Omega) 
+  D_h_error <-
+  simulation_3_noise$coef_pos_D_h * norm(t(simulation_3_noise$X)%*%simulation_3_noise$D_h-simulation_3_noise$A,"F")^2
+  D_w_error <-
+  simulation_3_noise$coef_pos_D_w * norm(simulation_3_noise$Omega%*%simulation_3_noise$D_w-simulation_3_noise$B,"F")^2
+          
+  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
+          
+  cnt <- cnt + 1
+  simulation_3_noise$errors_statistics <- rbind(simulation_3_noise$errors_statistics,c(cnt,t,1,0,0,
+                                                                   error_,
+                                                                   lambda_error,
+                                                                   D_h_error,
+                                                                   beta_error,
+                                                                   D_w_error,
+                                                                   new_error,
+                                                                   count_neg_props,
+                                                                   count_neg_basis))
+  
+  for (j in 1:100) {
+    mult_D <-  ((t(simulation_3_noise$Omega) %*% V__ %*% t(simulation_3_noise$X)) / (t(simulation_3_noise$Omega) %*% simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X %*% t(simulation_3_noise$X)))
+    #mult_D <- ((t(simulation_3_noise$Omega)%*%simulation_3_noise$Omega%*% simulation_3_noise$D_w)/(t(simulation_3_noise$Omega)%*%simulation_3_noise$B))
+    #print(mult_D)
+    simulation_3_noise$D_w <- simulation_3_noise$D_w #matrix(diag(diag(simulation_3_noise$D_w[,1]) * mult_D),nrow=simulation_3_noise$cell_types,ncol=1)
+    #simulation_3_noise$D_w <- simulation_3_noise$D_w * mult_D
+    simulation_3_noise$D_w <- (simulation_3_noise$D_w / sum(simulation_3_noise$D_w)) * M
+    simulation_3_noise$D_h <- simulation_3_noise$D_w * (N/M)
+  }
+  #print(sum(diag(mult_D)))
+  
+  
+  
+  error_ <- norm(V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X,"F")^2
+  lambda_error <- simulation_3_noise$coef_hinge_H * simulation_3_noise$hinge(simulation_3_noise$X %*% simulation_3_noise$R)
+  beta_error <- simulation_3_noise$coef_hinge_W * simulation_3_noise$hinge(t(simulation_3_noise$S) %*% simulation_3_noise$Omega) 
+  D_h_error <-
+  simulation_3_noise$coef_pos_D_h * norm(t(simulation_3_noise$X)%*%simulation_3_noise$D_h-simulation_3_noise$A,"F")^2
+  D_w_error <-
+  simulation_3_noise$coef_pos_D_w * norm(simulation_3_noise$Omega%*%simulation_3_noise$D_w-simulation_3_noise$B,"F")^2
+          
+  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
+          
+  cnt <- cnt + 1
+  simulation_3_noise$errors_statistics <- rbind(simulation_3_noise$errors_statistics,c(cnt,t,0,1,0,
+                                                                   error_,
+                                                                   lambda_error,
+                                                                   D_h_error,
+                                                                   beta_error,
+                                                                   D_w_error,
+                                                                   new_error,
+                                                                   count_neg_props,
+                                                                   count_neg_basis))
+  
+  der_Omega <- -2*(V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X) %*% t(simulation_3_noise$X) %*% t(diag(simulation_3_noise$D_w[,1]))
+  
+  der_Omega <- der_Omega + simulation_3_noise$coef_hinge_W * simulation_3_no_noise$hinge_der_basis(t(simulation_3_no_noise$S)%*%simulation_3_noise$Omega, simulation_3_no_noise$S) + simulation_3_noise$coef_pos_D_w * (simulation_3_noise$Omega%*%simulation_3_noise$D_w-simulation_3_no_noise$B) %*% t(simulation_3_noise$D_w)
+  der_Omega_f <- der_Omega #/ sqrt(sum(der_Omega^2))
+  der_Omega_f[1,] <- 0
+  simulation_3_noise$Omega <- simulation_3_noise$Omega - (simulation_3_noise$coef_der_Omega*der_Omega_f)
+  
+  simulation_3_noise$W_ <- t(simulation_3_noise$S) %*% simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1])
+  count_neg_basis <- sum(simulation_3_noise$W_ < -1e-10)
+          
+  error_ <- norm(V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X,"F")^2
+  lambda_error <- simulation_3_noise$coef_hinge_H * simulation_3_noise$hinge(simulation_3_noise$X %*% simulation_3_noise$R)
+  beta_error <- simulation_3_noise$coef_hinge_W * simulation_3_noise$hinge(t(simulation_3_noise$S) %*% simulation_3_noise$Omega) 
+  D_h_error <-
+  simulation_3_noise$coef_pos_D_h * norm(t(simulation_3_noise$X)%*%simulation_3_noise$D_h-simulation_3_noise$A,"F")^2
+  D_w_error <-
+  simulation_3_noise$coef_pos_D_w * norm(simulation_3_noise$Omega%*%simulation_3_noise$D_w-simulation_3_noise$B,"F")^2
+          
+  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
+          
+  cnt <- cnt + 1
+  simulation_3_noise$errors_statistics <- rbind(simulation_3_noise$errors_statistics,c(cnt,t,0,0,1,
+                                                                   error_,
+                                                                   lambda_error,
+                                                                   D_h_error,
+                                                                   beta_error,
+                                                                   D_w_error,
+                                                                   new_error,
+                                                                   count_neg_props,
+                                                                   count_neg_basis))
+  
+  for (j in 1:100) {
+    mult_D <-  ((t(simulation_3_noise$Omega) %*% V__ %*% t(simulation_3_noise$X)) / (t(simulation_3_noise$Omega) %*% simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X %*% t(simulation_3_noise$X)))
+    #mult_D <- ((t(simulation_3_noise$Omega)%*%simulation_3_noise$Omega%*% simulation_3_noise$D_w)/(t(simulation_3_noise$Omega)%*%simulation_3_noise$B))
+    #print(mult_D)
+    simulation_3_noise$D_w <- simulation_3_noise$D_w #matrix(diag(diag(simulation_3_noise$D_w[,1]) * mult_D),nrow=simulation_3_noise$cell_types,ncol=1)
+    #simulation_3_noise$D_w <- simulation_3_noise$D_w * mult_D
+    simulation_3_noise$D_w <- (simulation_3_noise$D_w / sum(simulation_3_noise$D_w)) * M
+    simulation_3_noise$D_h <- simulation_3_noise$D_w * (N/M)
+  }
+  #print(sum(diag(mult_D)))
+  
+  
+  
+  error_ <- norm(V__ - simulation_3_noise$Omega %*% diag(simulation_3_noise$D_w[,1]) %*% simulation_3_noise$X,"F")^2
+  lambda_error <- simulation_3_noise$coef_hinge_H * simulation_3_noise$hinge(simulation_3_noise$X %*% simulation_3_noise$R)
+  beta_error <- simulation_3_noise$coef_hinge_W * simulation_3_noise$hinge(t(simulation_3_noise$S) %*% simulation_3_noise$Omega) 
+  D_h_error <-
+  simulation_3_noise$coef_pos_D_h * norm(t(simulation_3_noise$X)%*%simulation_3_noise$D_h-simulation_3_noise$A,"F")^2
+  D_w_error <-
+  simulation_3_noise$coef_pos_D_w * norm(simulation_3_noise$Omega%*%simulation_3_noise$D_w-simulation_3_noise$B,"F")^2
+          
+  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
+          
+  cnt <- cnt + 1
+  simulation_3_noise$errors_statistics <- rbind(simulation_3_noise$errors_statistics,c(cnt,t,0,1,0,
+                                                                   error_,
+                                                                   lambda_error,
+                                                                   D_h_error,
+                                                                   beta_error,
+                                                                   D_w_error,
+                                                                   new_error,
+                                                                   count_neg_props,
+                                                                   count_neg_basis))
+  
+  pb$tick()
+}
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_noise$V_row %*% t(simulation_3_noise$R))
+colnames(toPlot) <- c("X","Y","Z")
+colnames(simulation_3_noise$X) <- c("X","Y","Z")
+plt1 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(simulation_3_noise$X), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (simulation_3_noise$cell_types*N),4)*100,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r}
+toPlot <- as.data.frame(t(simulation_3_noise$S %*% simulation_3_noise$V_column))
+colnames(toPlot) <- c("X","Y","Z")
+rownames(simulation_3_noise$Omega) <- c("X","Y","Z")
+plt2 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(t(simulation_3_noise$Omega)), fill=NA, color = "green") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (simulation_3_noise$cell_types*M),4)*100,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+```
+
+```{r, fig.width=8, fig.height=3}
+grid.arrange(plt1,plt2,nrow=1)
+```
+
+```{r}
+toPlot <- as.data.frame(simulation_3_noise$V_row %*% t(simulation_3_noise$R))
+real_X <- (test_data_noise$generated_data$proportions/rowSums(test_data_noise$generated_data$proportions)) %*% t(simulation_3_noise$R)
+colnames(toPlot) <- c("X","Y","Z")
+colnames(real_X) <- c("X","Y","Z")
+colnames(simulation_3_noise$X) <- c("X","Y","Z")
+plt1 <- ggplot(toPlot, aes(x=Y, y=Z)) +
+  geom_point() + 
+  geom_polygon(data=as.data.frame(simulation_3_noise$X), fill=NA, color = "green") +
+  geom_polygon(data=as.data.frame(real_X), fill=NA, color = "red") +
+  annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (simulation_3_noise$cell_types*N),4)*100,"%"), vjust=1, hjust=1) +
+  theme_minimal() #+ coord_cartesian(x=c(-0.1,0.1),y=c(-0.1,0.15))
+plt1
+```
+
+```{r}
+print(rowSums(test_data_noise$generated_data$proportions))
+print(simulation_3_noise$D_h)
+```
+
+```{r}
+colnames(simulation_3_noise$errors_statistics) <- c("idx","iteration","is_X","is_D","is_Omega",
+                                                    "deconv_error","lamdba_error","D_h_error",
+                                                    "beta_error","D_w_error","total_error",
+                                                    "neg_proportions","neg_basis")
+View(simulation_3_noise$errors_statistics)
+```
+
+```{r, fig.width=10, fig.height=6}
+toPlot <- melt(data.frame(simulation_3_noise$errors_statistics[,c("iteration","is_D","deconv_error","lamdba_error","beta_error","D_h_error","D_w_error","total_error")]) %>% filter(is_D==1),id.vars="iteration",measure.vars = c("deconv_error", "lamdba_error","beta_error","D_h_error","D_w_error","total_error"))
+plt <- ggplot(toPlot,aes(x=iteration,y=value,color=variable)) +
+  geom_point(size=0.5) +
+  geom_line() + theme_minimal()
+ggplotly(plt)
+```
+
+
+```{r}
+toPlot <- melt(data.frame(simulation_3_noise$errors_statistics[,c("iteration","is_D","D_h_error")]) %>% filter(is_D==1),id.vars="iteration",measure.vars = c("D_h_error"))
+plt <- ggplot(toPlot,aes(x=iteration,y=value,color=variable)) +
+  geom_point(size=0.5) +
+  geom_line() + theme_minimal()
+ggplotly(plt)
+```
+
+```{r}
+toPlot <- melt(data.frame(simulation_3_noise$errors_statistics[,c("iteration","is_D","D_w_error")]) %>% filter(is_D==1),id.vars="iteration",measure.vars = c("D_w_error"))
+plt <- ggplot(toPlot,aes(x=iteration,y=value,color=variable)) +
+  geom_point(size=0.5) +
+  geom_line() + theme_minimal()
+ggplotly(plt)
+```
+
+
+```{r}
+
+```
+
+
+
+

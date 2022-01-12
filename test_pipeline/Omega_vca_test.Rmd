@@ -101,12 +101,13 @@ new_Omega <- simulation_3_noise$S %*% Ae
 N <- ncol(simulation_3_noise$V_row)
 M <- nrow(simulation_3_noise$V_row)
 D_h <- N * matrix(c(1/3,1/3,1/3),nrow=3,ncol=1)
-D <- D_h * (M/N)
+D <- ginv(new_Omega) %*% simulation_3_noise$B #D_h * (M/N)
 
 V_row_ <- simulation_3_noise$S %*% simulation_3_noise$V_row %*% t(simulation_3_noise$R)
 new_X <- ginv(new_Omega %*% diag(D[,1])) %*% V_row_
 new_X[,1] <- 1/sqrt(N)
 ```
+
 
 ```{r}
 H_ <- new_X %*% simulation_3_noise$R
