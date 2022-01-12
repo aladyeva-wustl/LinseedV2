@@ -211,8 +211,6 @@ SinkhornLinseed <- R6Class(
     
     scaleDataset = function(iterations = 10000){
       V <- self$raw_dataset[rownames(self$filtered_dataset),]
-      N <- ncol(V)
-      M <- nrow(V)
       V_row <- V
       V_column <- V
       pb <- progress_bar$new(
@@ -234,12 +232,11 @@ SinkhornLinseed <- R6Class(
       V <- self$V_row
       
       #R
-      N <- ncol(V)
-      R_0 <- matrix(1/sqrt(N),ncol=N,nrow=1)
+      R_0 <- matrix(1/sqrt(self$N),ncol=self$N,nrow=1)
       V_t <- t(V)-(t(R_0) %*% R_0 %*% t(V))
       svd_ <- svd(V_t)
       
-      svd_k <- matrix(0,ncol=N,nrow=k)
+      svd_k <- matrix(0,ncol=self$N,nrow=k)
       svd_k[1,] <- R_0
       svd_k[2:k,] <- t(svd_$u[,1:(k-1)])
       
@@ -250,12 +247,11 @@ SinkhornLinseed <- R6Class(
       
       #S
       V_col <- t(self$V_column)
-      M <- nrow(V)
-      S_0 <- matrix(1/sqrt(M),ncol=M,nrow=1)
+      S_0 <- matrix(1/sqrt(self$M),ncol=self$M,nrow=1)
       V_m <- t(V_col) - t(S_0) %*% S_0 %*% t(V_col)
       svd_ <- svd(V_m)
       
-      svd_s_k <- matrix(0,ncol=M,nrow=k)
+      svd_s_k <- matrix(0,ncol=self$M,nrow=k)
       svd_s_k[1,] <- S_0
       svd_s_k[2:k,] <- t(svd_$u[,1:(k-1)])
       
@@ -303,10 +299,8 @@ SinkhornLinseed <- R6Class(
       self$init_Omega <- self$S %*% Ae
 
       ## D
-      N <- ncol(self$V_row)
-      M <- nrow(self$V_row)
       self$init_D_w <- ginv(self$init_Omega) %*% self$B
-      self$init_D_h <- self$init_D_w * (N/M)
+      self$init_D_h <- self$init_D_w * (self$N/self$M)
       
       ## X
       V__ <- self$S %*% self$V_row %*% t(self$R)
@@ -337,10 +331,8 @@ SinkhornLinseed <- R6Class(
       ## X
       self$init_X <- Ae %*% t(self$R)
       ## D
-      N <- ncol(self$V_row)
-      M <- nrow(self$V_row)
       self$init_D_h <- ginv(t(self$init_X)) %*% self$A
-      self$init_D_w <- self$init_D_h * (M/N)
+      self$init_D_w <- self$init_D_h * (self$M/self$N)
       ## Omega
       V__ <- self$S %*% self$V_row %*% t(self$R)
       self$init_Omega <- V__ %*% ginv(diag(self$init_D_w[,1]) %*% self$init_X)
