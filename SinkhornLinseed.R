@@ -405,7 +405,7 @@ SinkhornLinseed <- R6Class(
     },
 
     plotPoints2D = function(points="init") {
-      if !(points %in% c("init","current")) {
+      if (!points %in% c("init","current")) {
         stop("Allowed values for points are 'init', 'current'")
       }
 
@@ -725,10 +725,10 @@ SinkhornLinseed <- R6Class(
         pb$tick()
       }
       
-      colnames(self$errors_statistics) <- c("idx","global_idx",
-                                            "inner_idx","is_X","is_Omega","cell_type",
-                                            "deconv","lambda","d_h","beta","d_w","total",
-                                            "negative_props","negative_basis")
+      colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
+                                                    "deconv_error","lamdba_error","D_h_error",
+                                                    "beta_error","D_w_error","total_error",
+                                                    "neg_proportions","neg_basis")
       self$H_ <- self$X %*% self$R
       self$D_h <- diag(solve(self$X %*% t(self$X),self$unity)[,1])
       self$full_proportions <- self$D_h %*% self$H_
