@@ -613,7 +613,7 @@ for (t in seq(1,length.out=self$global_iterations)) {
       self$coef_der_X <- self$coef_der_X / 10
 
 pb <- progress_bar$new(
-        format = "Optimization [:bar] :percent eta: :eta",
+        format = "Optimization. Stage II [:bar] :percent eta: :eta",
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(nrow(self$errors_statistics)+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
