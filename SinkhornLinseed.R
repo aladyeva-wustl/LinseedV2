@@ -614,7 +614,7 @@ for (t in seq(1,length.out=self$global_iterations)) {
 }
 
       ## Stage II. Optimization of deconvolution and negative basis/proportions with sum-to-one constraints
-      self$coef_der_X <- 1e-7
+      self$coef_der_X <- self$coef_der_X / 10
 
 pb <- progress_bar$new(
         format = "Optimization [:bar] :percent eta: :eta",
