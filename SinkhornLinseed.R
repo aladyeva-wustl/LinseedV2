@@ -26,8 +26,6 @@ SinkhornLinseed <- R6Class(
     coef_hinge_W = NULL,
     coef_pos_D_w = NULL,
     coef_pos_D_h = NULL,
-    inner_iterations_X = NULL,
-    inner_iterations_Omega = NULL,
     global_iterations = NULL,
     new_points = NULL,
     new_samples_points = NULL,
@@ -64,20 +62,17 @@ SinkhornLinseed <- R6Class(
     init_W = NULL,
     init_Omega = NULL,
 
-    init_proportions_rows = NULL,
-    init_proportions_ = NULL,
-    init_basis_cols = NULL,
-    init_basis_ = NULL,
     unity = NULL,
-    inits_statistics_X = NULL,
-    inits_statistics_Omega = NULL,
+    init_count_neg_props = NULL,
+    init_count_neg_basis = NULL,
+    count_neg_props = NULL,
+    count_neg_basis = NULL,
     errors_statistics = NULL,
     genes_mean = NULL,
     genes_sd = NULL,
     genes_mad = NULL,
     top_genes = NULL,
     metric = NULL,
-    positive_dataset = NULL,
     
     getFoldChange = function(signatures) {
       cell_types_fc <-
@@ -412,10 +407,14 @@ SinkhornLinseed <- R6Class(
       if (points == "init") {
         X <- self$init_X
         Omega <- self$init_Omega
+        count_neg_props <- self$init_count_neg_props
+        count_neg_basis <- self$init_count_neg_basis
       }
       if (points == "current") {
         X <- self$X
         Omega <- self$Omega
+        count_neg_props <- self$count_neg_props
+        count_neg_basis <- self$count_neg_basis
       }
 
       ## plot X
@@ -424,19 +423,25 @@ SinkhornLinseed <- R6Class(
       colnames(X) <- c("X","Y","Z")
       pltX <- ggplot(toPlot, aes(x=Y, y=Z)) +
         geom_point() + 
-        geom_polygon(data=as.data.frame(X), fill=NA, color = "green") +
-        annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (self$cell_types*N),4)*100,"%"), vjust=1, hjust=1) +
+        geom_polygon(data=as.data.frame(X), fill=NA, color = "green") 
         theme_minimal()
-        
+      if (!is.null(count_neg_props)) {
+        pltX <- pltX + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (self$cell_types*N),4)*100,"%"), vjust=1, hjust=1)
+      }
+
+      ## plot Omega  
       toPlot <- as.data.frame(t(self$S %*% self$V_column))
       colnames(toPlot) <- c("X","Y","Z")
       rownames(Omega) <- c("X","Y","Z")
       pltOmega <- ggplot(toPlot, aes(x=Y, y=Z)) +
         geom_point() + 
         geom_polygon(data=as.data.frame(t(Omega)), fill=NA, color = "green") +
-        annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (self$cell_types*M),4)*100,"%"), vjust=1, hjust=1) +
         theme_minimal()
       
+      if (!is.null(count_neg_basis)) {
+        pltOmega <- pltOmega + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (self$cell_types*M),4)*100,"%"), vjust=1, hjust=1)
+      }
+
       grid.arrange(pltX,pltOmega,nrow=1)
     },
     
