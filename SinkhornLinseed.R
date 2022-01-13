@@ -466,6 +466,9 @@ SinkhornLinseed <- R6Class(
       prev_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
       self$errors_statistics <- rbind(self$errors_statistics, c(cnt,0,1,1,1,1,error_,
       lambda_error,D_h_error,beta_error,D_w_error,prev_error,self$init_count_neg_props,self$init_count_neg_basis))
+
+      self$count_neg_props <- self$init_count_neg_props
+      self$count_neg_basis <- self$init_count_neg_basis
       
       ## Stage I. Optimization of deconvolution and negative basis/proportions
       
