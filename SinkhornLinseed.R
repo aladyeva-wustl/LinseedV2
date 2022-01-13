@@ -477,7 +477,7 @@ SinkhornLinseed <- R6Class(
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
-  der_X <- der_X + self$coef_hinge_H * hinge_der_proportions(self$X %*% self$R, self$R)
+  der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R)
   der_X_f <- der_X
   der_X_f[,1] <- 0
   self$X <- self$X - (self$coef_der_X*der_X_f)
@@ -540,7 +540,7 @@ for (t in seq(1,length.out=self$global_iterations)) {
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
-  der_Omega <- der_Omega + self$coef_hinge_W * simulation_3_no_noise$hinge_der_basis(t(simulation_3_no_noise$S)%*%self$Omega, simulation_3_no_noise$S)
+  der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S)
   der_Omega_f <- der_Omega
   der_Omega_f[1,] <- 0
   self$Omega <- self$Omega - (self$coef_der_Omega*der_Omega_f)
@@ -620,7 +620,7 @@ pb <- progress_bar$new(
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
-  der_X <- der_X + self$coef_hinge_H * hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
+  der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
   der_X_f <- der_X
   der_X_f[,1] <- 0
   self$X <- self$X - (self$coef_der_X*der_X_f)
@@ -683,7 +683,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
-  der_Omega <- der_Omega + self$coef_hinge_W * simulation_3_no_noise$hinge_der_basis(t(simulation_3_no_noise$S)%*%self$Omega, simulation_3_no_noise$S) + self$coef_pos_D_w * (self$Omega%*%self$D_w-simulation_3_no_noise$B) %*% t(self$D_w)
+  der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S) + self$coef_pos_D_w * (self$Omega%*%self$D_w-self$B) %*% t(self$D_w)
   der_Omega_f <- der_Omega
   der_Omega_f[1,] <- 0
   self$Omega <- self$Omega - (self$coef_der_Omega*der_Omega_f)
