@@ -615,7 +615,7 @@ for (t in seq(1,length.out=self$global_iterations)) {
 pb <- progress_bar$new(
         format = "Optimization. Stage II [:bar] :percent eta: :eta",
         total = self$global_iterations, clear = FALSE, width= 60)
-for (t in seq(max(self$errors_statistics$iteration)+1,length.out=self$global_iterations)) {
+for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
   der_X <- der_X + self$coef_hinge_H * hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
   der_X_f <- der_X
