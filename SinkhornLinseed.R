@@ -774,7 +774,8 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
     },
     
     plotErrors = function(filter_var="is_Omega",
-    variables = c("deconv_error","lamdba_error","beta_error","D_h_error","D_w_error","total_error")) {
+    variables = c("deconv_error","lamdba_error","beta_error","D_h_error","D_w_error","total_error"),
+    tail_rows = NULL) {
       if (is.null(colnames(self$errors_statistics))) {
         colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
                                                     "deconv_error","lamdba_error","D_h_error",
@@ -782,6 +783,9 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
                                                     "neg_proportions","neg_basis")
       }
       toPlot <- melt(data.frame(self$errors_statistics[,c("iteration",filter_var,variables)]) %>% filter(.data[[filter_var]]==1),id.vars="iteration",measure.vars = variables)
+      if (!is.null(tail_rows)) {
+        toPlot <- tail(toPlot,tail_rows*length(variables))
+      }
       plt <- ggplot(toPlot,aes(x=iteration,y=value,color=variable)) +
       geom_point(size=0.2) +
       geom_line() + theme_minimal()
