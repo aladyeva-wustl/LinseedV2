@@ -110,9 +110,7 @@ SinkhornLinseed <- R6Class(
                           coef_pos_D_h = 0.01,
                           coef_hinge_H = 100,
                           coef_hinge_W = 10,
-                          inner_iterations_X = 1000,
-                          inner_iterations_Omega = 1000,
-                          global_iterations = 10) {
+                          global_iterations = 10000) {
       self$filtered_samples <- filtered_samples
       self$dataset <- dataset
       self$path_ <- path
@@ -130,8 +128,6 @@ SinkhornLinseed <- R6Class(
       self$coef_pos_D_w <- coef_pos_D_w
       self$coef_pos_D_h <- coef_pos_D_h
       
-      self$inner_iterations_X <- inner_iterations_X
-      self$inner_iterations_Omega <- inner_iterations_Omega
       self$global_iterations <- global_iterations
       
       if (!is.null(data)) {
