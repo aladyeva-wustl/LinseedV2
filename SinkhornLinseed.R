@@ -351,7 +351,7 @@ SinkhornLinseed <- R6Class(
         der_loc_R <- matrix(0,nrow=m,ncol=n)
         for (i in 1:m) {
           for (j in 1:n) {
-            if (H[i,j] < 0) {
+            if (H[i,j] < -1e-10) {
               der_loc_R[i,j] <- -R[c,j]
             }
           }
@@ -373,8 +373,8 @@ SinkhornLinseed <- R6Class(
       res <- matrix(0,nrow=n,ncol=n)
       
       for (j in 1:n) {
-        if (any(W[,j]>0)) {
-          res[,j] <- -apply(t(S)[which(W[,j]<0),,drop=F],2,sum)
+        if (any(W[,j] < -1e-10)) {
+          res[,j] <- -apply(t(S)[which(W[,j] < -1e-10),,drop=F],2,sum)
         }
       }
       res[1,] <- 0
