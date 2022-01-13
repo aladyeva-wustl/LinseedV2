@@ -422,7 +422,7 @@ SinkhornLinseed <- R6Class(
         geom_polygon(data=as.data.frame(X), fill=NA, color = "green") 
         theme_minimal()
       if (!is.null(count_neg_props)) {
-        pltX <- pltX + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (self$cell_types*N),4)*100,"%"), vjust=1, hjust=1)
+        pltX <- pltX + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (self$cell_types*self$N),4)*100,"%"), vjust=1, hjust=1)
       }
 
       ## plot Omega  
@@ -435,7 +435,7 @@ SinkhornLinseed <- R6Class(
         theme_minimal()
       
       if (!is.null(count_neg_basis)) {
-        pltOmega <- pltOmega + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (self$cell_types*M),4)*100,"%"), vjust=1, hjust=1)
+        pltOmega <- pltOmega + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_basis / (self$cell_types*self$M),4)*100,"%"), vjust=1, hjust=1)
       }
 
       grid.arrange(pltX,pltOmega,nrow=1)
@@ -508,8 +508,8 @@ for (t in seq(1,length.out=self$global_iterations)) {
   for (j in 1:100) {
     mult_D <-  ((t(self$Omega) %*% V__ %*% t(self$X)) / (t(self$Omega) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% t(self$X)))
     self$D_w <- matrix(diag(diag(self$D_w[,1]) * mult_D),nrow=self$cell_types,ncol=1)
-    self$D_w <- (self$D_w / sum(self$D_w)) * M
-    self$D_h <- self$D_w * (N/M)
+    self$D_w <- (self$D_w / sum(self$D_w)) * self$M
+    self$D_h <- self$D_w * (self$N/self$M)
   }
   
   
@@ -569,8 +569,8 @@ for (t in seq(1,length.out=self$global_iterations)) {
   for (j in 1:100) {
     mult_D <-  ((t(self$Omega) %*% V__ %*% t(self$X)) / (t(self$Omega) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% t(self$X)))
     self$D_w <- matrix(diag(diag(self$D_w[,1]) * mult_D),nrow=self$cell_types,ncol=1)
-    self$D_w <- (self$D_w / sum(self$D_w)) * M
-    self$D_h <- self$D_w * (N/M)
+    self$D_w <- (self$D_w / sum(self$D_w)) * self$M
+    self$D_h <- self$D_w * (self$N/self$M)
   }
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
@@ -651,8 +651,8 @@ for (t in seq(nrow(self$errors_statistics)+1,length.out=self$global_iterations))
   for (j in 1:100) {
     mult_D <-  ((t(self$Omega) %*% V__ %*% t(self$X)) / (t(self$Omega) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% t(self$X)))
     self$D_w <- matrix(diag(diag(self$D_w[,1]) * mult_D),nrow=self$cell_types,ncol=1)
-    self$D_w <- (self$D_w / sum(self$D_w)) * M
-    self$D_h <- self$D_w * (N/M)
+    self$D_w <- (self$D_w / sum(self$D_w)) * self$M
+    self$D_h <- self$D_w * (self$N/self$M)
   }
   
   
@@ -712,8 +712,8 @@ for (t in seq(nrow(self$errors_statistics)+1,length.out=self$global_iterations))
   for (j in 1:100) {
     mult_D <-  ((t(self$Omega) %*% V__ %*% t(self$X)) / (t(self$Omega) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% t(self$X)))
     self$D_w <- matrix(diag(diag(self$D_w[,1]) * mult_D),nrow=self$cell_types,ncol=1)
-    self$D_w <- (self$D_w / sum(self$D_w)) * M
-    self$D_h <- self$D_w * (N/M)
+    self$D_w <- (self$D_w / sum(self$D_w)) * self$M
+    self$D_h <- self$D_w * (self$N/self$M)
   }
   
   
