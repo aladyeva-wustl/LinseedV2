@@ -797,9 +797,11 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
       plt
     },
     saveResults = function() {
+## save proportions
       write.table(self$full_proportions,
                   file=paste0(self$path_,"/","markers_",self$analysis_name,"_proportions.tsv"),
                   sep="\t",col.names = NA, row.names = T, quote = F)
+## save basis row normalized            
       colnames(self$full_basis) <- paste0("Cell_type_",1:self$cell_types)
       toSave <- self$full_basis
       toSave <- self$getFoldChange(toSave)
@@ -807,6 +809,13 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
       rownames(toSave) <- c("avg_proportions",rownames(self$filtered_dataset))
       write.table(toSave,file=paste0(self$path_,"/","markers_",self$analysis_name,"_basis_fc.tsv"),
                   sep="\t",col.names = NA, row.names = T, quote = F)
+## save basis column normalized
+      toSave <- t(t(self$full_basis) / rowSums(t(self$full_basis)))
+      toSave <- self$getFoldChange(toSave)
+      toSave <- rbind(c(rep(NA,self$cell_types),round(apply(self$full_proportions,1,mean),4)),toSave)
+      rownames(toSave) <- c("avg_proportions",rownames(self$filtered_dataset))
+      write.table(toSave,file=paste0(self$path_,"/","markers_",self$analysis_name,"_basis_fc_columns.tsv"),
+                  sep="\t",col.names = NA, row.names = T, quote = F)  
     }
   )
 )
