@@ -6,6 +6,7 @@ library(combinat)
 library(progress)
 library(corpcor)
 library(MASS)
+library(nnls)
 
 SinkhornNNLSLinseed <- R6Class(
   "SinkhornNNLSLinseed",
@@ -441,7 +442,7 @@ SinkhornNNLSLinseed <- R6Class(
       grid.arrange(pltX,pltOmega,nrow=1)
     },
     
-    runOptimization = function(debug=FALSE, idx = NULL) {
+    runOptimization = function(debug=FALSE, idx = NULL, renorm=T) {
       
       self$errors_statistics <- NULL
       V__ <- self$S %*% self$V_row %*% t(self$R)
@@ -508,12 +509,17 @@ for (t in seq(1,length.out=self$global_iterations)) {
                                                                    self$count_neg_props,
                                                                    self$count_neg_basis))
   
-  for (j in 1:100) {
-    mult_D <-  ((t(self$Omega) %*% V__ %*% t(self$X)) / (t(self$Omega) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% t(self$X)))
-    self$D_w <- matrix(diag(diag(self$D_w[,1]) * mult_D),nrow=self$cell_types,ncol=1)
-    self$D_w <- (self$D_w / sum(self$D_w)) * self$M
+    ## vectorizing deconvolution
+    vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+    for (col_ in 1:self$cell_types) {
+        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$init_X[col_,]))
+    }
+    ## adding sum-to-one constraint
+    self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+    if (renorm) {
+        self$D_w <- self$D_w / sum(self$D_w)
+    }    
     self$D_h <- self$D_w * (self$N/self$M)
-  }
   
   
   
@@ -569,12 +575,17 @@ for (t in seq(1,length.out=self$global_iterations)) {
                                                                    self$count_neg_props,
                                                                    self$count_neg_basis))
   
-  for (j in 1:100) {
-    mult_D <-  ((t(self$Omega) %*% V__ %*% t(self$X)) / (t(self$Omega) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% t(self$X)))
-    self$D_w <- matrix(diag(diag(self$D_w[,1]) * mult_D),nrow=self$cell_types,ncol=1)
-    self$D_w <- (self$D_w / sum(self$D_w)) * self$M
+  ## vectorizing deconvolution
+    vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+    for (col_ in 1:self$cell_types) {
+        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$init_X[col_,]))
+    }
+    ## adding sum-to-one constraint
+    self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+    if (renorm) {
+        self$D_w <- self$D_w / sum(self$D_w)
+    }    
     self$D_h <- self$D_w * (self$N/self$M)
-  }
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
