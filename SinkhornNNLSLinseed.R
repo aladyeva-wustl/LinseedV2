@@ -7,8 +7,8 @@ library(progress)
 library(corpcor)
 library(MASS)
 
-SinkhornLinseed <- R6Class(
-  "SinkhornLinseed",
+SinkhornNNLSLinseed <- R6Class(
+  "SinkhornNNLSLinseed",
   public = list(
     filtered_samples = NULL,
     filtered_dataset = NULL,
