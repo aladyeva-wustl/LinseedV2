@@ -512,7 +512,7 @@ for (t in seq(1,length.out=self$global_iterations)) {
     ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
     for (col_ in 1:self$cell_types) {
-        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$init_X[col_,]))
+        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
@@ -578,7 +578,7 @@ for (t in seq(1,length.out=self$global_iterations)) {
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
     for (col_ in 1:self$cell_types) {
-        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$init_X[col_,]))
+        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
@@ -665,7 +665,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
     for (col_ in 1:self$cell_types) {
-        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$init_X[col_,]))
+        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
@@ -731,7 +731,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
     for (col_ in 1:self$cell_types) {
-        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$init_X[col_,]))
+        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
