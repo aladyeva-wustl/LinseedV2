@@ -442,7 +442,7 @@ SinkhornNNLSLinseed <- R6Class(
       grid.arrange(pltX,pltOmega,nrow=1)
     },
     
-    runOptimization = function(debug=FALSE, idx = NULL, renorm=T) {
+    runOptimization = function(debug=FALSE, idx = NULL) {
       
       self$errors_statistics <- NULL
       V__ <- self$S %*% self$V_row %*% t(self$R)
@@ -516,9 +516,6 @@ for (t in seq(1,length.out=self$global_iterations)) {
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-    if (renorm) {
-        self$D_w <- self$D_w / sum(self$D_w)
-    }    
     self$D_h <- self$D_w * (self$N/self$M)
   
   
@@ -582,9 +579,6 @@ for (t in seq(1,length.out=self$global_iterations)) {
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-    if (renorm) {
-        self$D_w <- self$D_w / sum(self$D_w)
-    }    
     self$D_h <- self$D_w * (self$N/self$M)
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
@@ -669,9 +663,6 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-    if (renorm) {
-        self$D_w <- self$D_w / sum(self$D_w)
-    }    
     self$D_h <- self$D_w * (self$N/self$M)
   
   
@@ -735,9 +726,6 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-    if (renorm) {
-        self$D_w <- self$D_w / sum(self$D_w)
-    }    
     self$D_h <- self$D_w * (self$N/self$M)
   
   
