@@ -475,6 +475,14 @@ SinkhornNNLSLinseed <- R6Class(
         cnt <- max(self$errors_statistics[,"idx"])+1
         t <- max(self$errors_statistics[,"iteration"])+1
       }
+
+      self$H_ <- self$X %*% self$R
+      self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
+      self$init_count_neg_props <- sum(self$full_proportions < -1e-10)
+  
+      self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
+      self$init_count_neg_basis <- sum(self$W_ < -1e-10)
+
       error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
       lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
       beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega)
