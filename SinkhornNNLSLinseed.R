@@ -330,6 +330,19 @@ SinkhornNNLSLinseed <- R6Class(
       self$init_Omega <- V__ %*% ginv(diag(self$init_D_w[,1]) %*% self$init_X)
 
     },
+
+    readInitValues = function(file) {
+      initValues <- readRDS(file)
+      ## Omega
+      self$init_Omega <- initValues$init_Omega
+    
+      ## D
+      self$init_D_w <- initValues$init_D_w
+      self$init_D_h <- initValues$init_D_h
+    
+      ## X
+      self$init_X <- initValues$init_X
+    },
     
     hinge = function(X) {
       N <- ncol(X)
@@ -442,30 +455,33 @@ SinkhornNNLSLinseed <- R6Class(
       grid.arrange(pltX,pltOmega,nrow=1)
     },
     
-    runOptimization = function(debug=FALSE, idx = NULL) {
+    runOptimization = function(debug=FALSE, idx = NULL, startWithInit = T) {
       
-      self$errors_statistics <- NULL
       V__ <- self$S %*% self$V_row %*% t(self$R)
-
-      self$X <- self$init_X
-      self$D_w <- self$init_D_w
-      self$Omega <- self$init_Omega
-      self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
-      self$init_count_neg_basis <- sum(self$W_ < -1e-10)
-
-      self$D_h <- self$init_D_h
-      self$H_ <- self$X %*% self$R
-      self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
-      self$init_count_neg_props <- sum(self$full_proportions < -1e-10)
-
-      cnt <- 0
+      prev_ct <- self$cell_types-1
+  
+      if (startWithInit) {
+        self$errors_statistics <- NULL
+     
+        self$X <- self$init_X
+        self$D_w <- self$init_D_w
+        self$Omega <- self$init_Omega
+     
+        self$D_h <- self$init_D_h
+     
+        cnt <- 0
+        t <- 0
+      } else {
+        cnt <- max(self$errors_statistics[,"idx"])+1
+        t <- max(self$errors_statistics[,"iteration"])+1
+      }
       error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
       lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
       beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega)
       D_h_error <- self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
       D_w_error <- self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
       prev_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-      self$errors_statistics <- rbind(self$errors_statistics, c(cnt,0,1,1,1,1,error_,
+      self$errors_statistics <- rbind(self$errors_statistics, c(cnt,t,1,1,1,1,error_,
       lambda_error,D_h_error,beta_error,D_w_error,prev_error,self$init_count_neg_props,self$init_count_neg_basis))
 
       self$count_neg_props <- self$init_count_neg_props
@@ -476,7 +492,13 @@ SinkhornNNLSLinseed <- R6Class(
       pb <- progress_bar$new(
         format = "Optimization. Stage I [:bar] :percent eta: :eta",
         total = self$global_iterations, clear = FALSE, width= 60)
-for (t in seq(1,length.out=self$global_iterations)) {
+      if (startWithInit) {
+         start_idx <- 1  
+      } else {
+         start_idx <- max(self$errors_statistics[,2])+1
+      }
+
+for (t in seq(start_idx,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
   der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R)
   der_X_f <- der_X
