@@ -59,10 +59,10 @@ plotSVD <- function(obj) {
 }
 
 generateExample <- function(N,genes,cell_types,sampleLogSd,sampleLogMean,
-                            noiseDeviation,k) {
+                            noiseDeviation,k, addPure = F) {
   generated_data <- generateMixedData(samples = N, genes = genes, cellTypes = cell_types, 
                                       sampleLogSd = sampleLogSd, sampleLogMean = sampleLogMean, 
-                                      noiseDeviation = 0, addPure = F)
+                                      noiseDeviation = 0)
   gene_names <- rownames(generated_data$basis)
   
   if (addPure) {
