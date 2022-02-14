@@ -137,7 +137,11 @@ generateExample <- function(N,genes,cell_types,sampleLogSd,sampleLogMean,
   
   H_real <- generated_data$proportions / rowSums(generated_data$proportions)
   X_real <- H_real %*% t(R)
-  pure_data_real <- pure_data[,paste("Sample",(ncol(V_)-k+1):ncol(V_))]
+  if (addPure) {
+    pure_data_real <- pure_data[,paste("Sample",(ncol(V_)-k+1):ncol(V_))]
+  } else {
+    pure_data_real <- generated_data$basis
+  }
   Omega_real <- S %*% pure_data_real
   
   
