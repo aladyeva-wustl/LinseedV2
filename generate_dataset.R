@@ -62,22 +62,28 @@ generateExample <- function(N,genes,cell_types,sampleLogSd,sampleLogMean,
                             noiseDeviation,k) {
   generated_data <- generateMixedData(samples = N, genes = genes, cellTypes = cell_types, 
                                       sampleLogSd = sampleLogSd, sampleLogMean = sampleLogMean, 
-                                      noiseDeviation = 0)
+                                      noiseDeviation = 0, addPure = F)
   gene_names <- rownames(generated_data$basis)
-  for (i in 1:cell_types) {
-    tt <- matrix(0,ncol=1,nrow=cell_types)
-    tt[i,] <- 1
-    generated_data$proportions <- cbind(generated_data$proportions,tt)
-    generated_data$basis <- rbind(t(tt),generated_data$basis)
-  }
-  rownames(generated_data$basis) <- c(paste0("Pure",c(1:cell_types)),gene_names)
   
-  colnames(generated_data$proportions) <- paste("Sample",c(1:ncol(generated_data$proportions)))
-  pure_data <- generated_data$basis %*% generated_data$proportions
-  generated_data$data <- pure_data
+  if (addPure) {
+    for (i in 1:cell_types) {
+      tt <- matrix(0,ncol=1,nrow=cell_types)
+      tt[i,] <- 1
+      generated_data$proportions <- cbind(generated_data$proportions,tt)
+      generated_data$basis <- rbind(t(tt),generated_data$basis)
+    }
+    rownames(generated_data$basis) <- c(paste0("Pure",c(1:cell_types)),gene_names)
+    
+    colnames(generated_data$proportions) <- paste("Sample",c(1:ncol(generated_data$proportions)))
+    pure_data <- generated_data$basis %*% generated_data$proportions
+    generated_data$data <- pure_data  
+    genes <- genes+cell_types
+    N <- N+cell_types
+  }
+  
   if (noiseDeviation > 0) {
     noise <- matrix(rnorm(length(generated_data$data), sd=noiseDeviation),
-                    nrow = genes+cell_types, ncol = N+cell_types)
+                    nrow = genes, ncol = N)
     noised <- generated_data$data + 2^noise
     noised[noised < 0] <- 0
     generated_data$data <- noised      
@@ -87,7 +93,7 @@ generateExample <- function(N,genes,cell_types,sampleLogSd,sampleLogMean,
   N <- ncol(V)
   M <- nrow(V)
   V_ <- V
-  for (i in 1:10000) {
+  for (i in 1:3000) {
     V_ <- V_ / rowSums(V_)
     t1 <- sqrt(sum((matrix(1,nrow=1,ncol=N) - colSums(V_))^2))
     V_ <- t(t(V_) / rowSums(t(V_)))  #apply(V_1,2,function(x) {x / sum(x)})
@@ -147,8 +153,7 @@ generateExample <- function(N,genes,cell_types,sampleLogSd,sampleLogMean,
        H_real = H_real,
        X_real = X_real,
        pure_data_real = pure_data_real,
-       Omega_real = Omega_real
-  )
+       Omega_real = Omega_real)
 }
 
 
