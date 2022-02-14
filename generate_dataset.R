@@ -79,6 +79,8 @@ generateExample <- function(N,genes,cell_types,sampleLogSd,sampleLogMean,
     generated_data$data <- pure_data  
     genes <- genes+cell_types
     N <- N+cell_types
+  } else {
+    pure_data <- generated_data$data
   }
   
   if (noiseDeviation > 0) {
