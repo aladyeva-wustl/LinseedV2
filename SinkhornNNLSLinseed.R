@@ -331,6 +331,92 @@ SinkhornNNLSLinseed <- R6Class(
 
     },
 
+    initWithSubset <- function(n,top) {
+  idxTableX <- matrix(0,ncol=self$cell_types+1,nrow=n)
+  idxTableOmega <- matrix(0,ncol=self$cell_types+1,nrow=n)
+  for (i in 1:n) {
+    #Omega
+    ids_Omega <- sample(1:self$N,self$cell_types)  
+    Ae <- self$V_column[,ids_Omega]
+    init_Omega <- self$S %*% Ae
+    metric_Omega <- sqrt(sum(apply(init_Omega[-1,],1,mean)^2))
+    
+    idxTableOmega[i,] <- c(ids_Omega,metric_Omega)
+    
+    
+    #X
+    ids_X <- sample(1:self$N,self$cell_types)
+    Ae <- self$V_row[ids_X,]
+    init_X <- Ae %*% t(self$R)
+    metric_X <- sqrt(sum(apply(init_X[,-1],2,mean)^2))
+    
+    idxTableX[i,] <- c(ids_X,metric_X)
+  }
+  
+  idxTableOmega <- idxTableOmega[order(idxTableOmega[,(self$cell_types+1)],decreasing=F),]
+  idxTableX <- idxTableX[order(idxTableX[,(self$cell_types+1)],decreasing=F),]
+  
+  return(list(idsTableOmega = idxTableOmega[1:top,],
+              idsTableX = idxTableX[1:top,]))
+},
+
+runInitOptimization <- function(idx_Omega, idx_X, 
+                                global_iters_=200, iters_=100,
+                                statistics = T) {
+  
+  V__ <- self$S %*% self$V_row %*% t(self$R)
+  
+  Ae <- self$V_column[, idx_Omega]
+  ## Omega
+  self$init_Omega <- self$S %*% Ae
+
+  ## X
+  Ae <- self$V_row[idx_X, ]
+  self$init_X <- Ae %*% t(self$R)
+
+  ## calculate D_w and D_h
+  ## vectorizing deconvolution
+  vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+  for (col_ in 1:self$cell_types) {
+    vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
+  }
+  ## adding sum-to-one constraint
+  self$init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+  self$init_D_h <- self$init_D_w * (self$N/self$M)
+  
+  ## optimization
+  self$init_errors_statistics <- matrix(0,nrow=0,ncol=4)
+  
+  for (c in 1:global_iters_) {
+    for (t in 1:iters_) {
+      der_X <- -2*(t(diag(self$init_D_w[,1])) %*% t(self$init_Omega) %*% (V__ - self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X))
+      der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$init_X %*% self$R, self$R)
+      der_X_f <- der_X
+      der_X_f[,1] <- 0
+      self$init_X <- self$init_X - (self$coef_der_X*der_X_f)
+  
+      der_Omega <- -2*(V__ - self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X) %*% t(self$init_X) %*% t(diag(self$init_D_w[,1]))
+      der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$init_Omega, self$S)
+      der_Omega_f <- der_Omega
+      der_Omega_f[1,] <- 0
+      self$init_Omega <- self$init_Omega - (self$coef_der_Omega*der_Omega_f)
+    }
+  vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+  for (col_ in 1:self$cell_types) {
+    vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
+  }
+  self$init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+  self$init_D_h <- self$init_D_w * (self$N/self$M)
+
+  error_ <- norm(V__ - self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X,"F")^2
+  lambda_error <- self$coef_hinge_H * self$hinge(self$init_X %*% self$R)
+  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega)
+  self$init_errors_statistics <- rbind(self$init_errors_statistics,
+                                  c(error_,lambda_error,beta_error,error_+lambda_error+beta_error))
+  }
+  
+},
+
     readInitValues = function(file) {
       initValues <- readRDS(file)
       ## Omega
