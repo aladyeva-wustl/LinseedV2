@@ -361,29 +361,9 @@ SinkhornNNLSLinseed <- R6Class(
               idsTableX = idxTableX[1:top,]))
 },
 
-runInitOptimization <- function(idx_Omega, idx_X, 
-                                global_iters_=200, iters_=100,
-                                statistics = T) {
+runInitOptimization <- function(global_iters_=200, iters_=100) {
   
   V__ <- self$S %*% self$V_row %*% t(self$R)
-  
-  Ae <- self$V_column[, idx_Omega]
-  ## Omega
-  self$init_Omega <- self$S %*% Ae
-
-  ## X
-  Ae <- self$V_row[idx_X, ]
-  self$init_X <- Ae %*% t(self$R)
-
-  ## calculate D_w and D_h
-  ## vectorizing deconvolution
-  vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
-  for (col_ in 1:self$cell_types) {
-    vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
-  }
-  ## adding sum-to-one constraint
-  self$init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-  self$init_D_h <- self$init_D_w * (self$N/self$M)
   
   ## optimization
   self$init_errors_statistics <- matrix(0,nrow=0,ncol=4)
@@ -745,7 +725,7 @@ pb <- progress_bar$new(
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
-  der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
+  der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * 2 * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
   der_X_f <- der_X
   der_X_f[,1] <- 0
   self$X <- self$X - (self$coef_der_X*der_X_f)
@@ -810,7 +790,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
-  der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S) + self$coef_pos_D_w * (self$Omega%*%self$D_w-self$B) %*% t(self$D_w)
+  der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S) + self$coef_pos_D_w * 2 * (self$Omega%*%self$D_w-self$B) %*% t(self$D_w)
   der_Omega_f <- der_Omega
   der_Omega_f[1,] <- 0
   self$Omega <- self$Omega - (self$coef_der_Omega*der_Omega_f)
