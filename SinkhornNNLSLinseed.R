@@ -69,6 +69,7 @@ SinkhornNNLSLinseed <- R6Class(
     count_neg_props = NULL,
     count_neg_basis = NULL,
     errors_statistics = NULL,
+    init_errors_statistics = NULL,
     genes_mean = NULL,
     genes_sd = NULL,
     genes_mad = NULL,
