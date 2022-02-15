@@ -332,7 +332,7 @@ SinkhornNNLSLinseed <- R6Class(
 
     },
 
-    initWithSubset <- function(n,top) {
+    initWithSubset = function(n,top) {
   idxTableX <- matrix(0,ncol=self$cell_types+1,nrow=n)
   idxTableOmega <- matrix(0,ncol=self$cell_types+1,nrow=n)
   for (i in 1:n) {
@@ -361,7 +361,7 @@ SinkhornNNLSLinseed <- R6Class(
               idsTableX = idxTableX[1:top,]))
 },
 
-runInitOptimization <- function(global_iters_=200, iters_=100) {
+runInitOptimization = function(global_iters_=200, iters_=100) {
   
   V__ <- self$S %*% self$V_row %*% t(self$R)
   
