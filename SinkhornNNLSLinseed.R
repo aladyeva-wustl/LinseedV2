@@ -69,10 +69,7 @@ SinkhornNNLSLinseed <- R6Class(
     count_neg_props = NULL,
     count_neg_basis = NULL,
     errors_statistics = NULL,
-<<<<<<< HEAD
-=======
     init_errors_statistics = NULL,
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
     genes_mean = NULL,
     genes_sd = NULL,
     genes_mad = NULL,
@@ -335,8 +332,6 @@ SinkhornNNLSLinseed <- R6Class(
 
     },
 
-<<<<<<< HEAD
-=======
     initWithSubset = function(n,top) {
   idxTableX <- matrix(0,ncol=self$cell_types+1,nrow=n)
   idxTableOmega <- matrix(0,ncol=self$cell_types+1,nrow=n)
@@ -404,7 +399,6 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
   
 },
 
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
     readInitValues = function(file) {
       initValues <- readRDS(file)
       ## Omega
@@ -561,21 +555,14 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
       self$init_count_neg_basis <- sum(self$W_ < -1e-10)
 
       error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
       orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
       lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
       beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega)
       D_h_error <- self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
       D_w_error <- self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
       prev_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
       self$errors_statistics <- rbind(self$errors_statistics, c(cnt,t,1,1,1,1,error_,
-<<<<<<< HEAD
-      lambda_error,D_h_error,beta_error,D_w_error,prev_error,self$init_count_neg_props,self$init_count_neg_basis))
-=======
       lambda_error,D_h_error,beta_error,D_w_error,prev_error,self$init_count_neg_props,self$init_count_neg_basis,orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
 
       self$count_neg_props <- self$init_count_neg_props
       self$count_neg_basis <- self$init_count_neg_basis
@@ -604,10 +591,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   self$count_neg_props <- sum(self$full_proportions < -1e-10)
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -626,12 +610,8 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   
     ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
@@ -645,10 +625,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -667,12 +644,8 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
@@ -685,10 +658,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   self$count_neg_basis <- sum(self$W_ < -1e-10)
           
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -707,12 +677,8 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
@@ -724,10 +690,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
     self$D_h <- self$D_w * (self$N/self$M)
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -746,21 +709,13 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
                                                                    self$count_neg_basis))
-=======
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   if (debug) {
         cat(paste("\n",cnt,":",
                   "\nIteration:",t,
                   "\nTotal:",new_error,
                   "\nDeconv:",error_,
-<<<<<<< HEAD
-=======
                   "\nOriginal deconv:",orig_deconv_error,
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
                   "\nLambda:",lambda_error,
                   "\nPos_D_h:",D_h_error,
                   "\nBeta:",beta_error,
@@ -780,11 +735,7 @@ pb <- progress_bar$new(
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
-<<<<<<< HEAD
-  der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
-=======
   der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R) + self$coef_pos_D_h * 2 * self$D_h %*% t(t(self$X)%*%self$D_h-self$A)
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   der_X_f <- der_X
   der_X_f[,1] <- 0
   self$X <- self$X - (self$coef_der_X*der_X_f)
@@ -795,10 +746,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   self$count_neg_props <- sum(self$full_proportions < -1e-10)
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -817,12 +765,8 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
@@ -836,10 +780,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -858,20 +799,12 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-  
-  der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
-  
-  der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S) + self$coef_pos_D_w * (self$Omega%*%self$D_w-self$B) %*% t(self$D_w)
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
   der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S) + self$coef_pos_D_w * 2 * (self$Omega%*%self$D_w-self$B) %*% t(self$D_w)
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   der_Omega_f <- der_Omega
   der_Omega_f[1,] <- 0
   self$Omega <- self$Omega - (self$coef_der_Omega*der_Omega_f)
@@ -902,12 +835,8 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
@@ -921,10 +850,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   
   
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
@@ -943,22 +869,15 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
                                                                    D_w_error,
                                                                    new_error,
                                                                    self$count_neg_props,
-<<<<<<< HEAD
-                                                                   self$count_neg_basis))
-=======
                                                                    self$count_neg_basis,
                                                                    orig_deconv_error))
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
 
   if (debug) {
         cat(paste("\n",cnt,":",
                   "\nIteration:",t,
                   "\nTotal:",new_error,
                   "\nDeconv:",error_,
-<<<<<<< HEAD
-=======
                   "\nOriginal deconv:",orig_deconv_error,
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
                   "\nLambda:",lambda_error,
                   "\nPos_D_h:",D_h_error,
                   "\nBeta:",beta_error,
@@ -973,11 +892,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
       colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
                                                     "deconv_error","lamdba_error","D_h_error",
                                                     "beta_error","D_w_error","total_error",
-<<<<<<< HEAD
-                                                    "neg_proportions","neg_basis")
-=======
                                                     "neg_proportions","neg_basis","orig_deconv_error")
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
       self$H_ <- self$X %*% self$R
       self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
       self$orig_full_proportions <- self$full_proportions
@@ -999,11 +914,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
         colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
                                                     "deconv_error","lamdba_error","D_h_error",
                                                     "beta_error","D_w_error","total_error",
-<<<<<<< HEAD
-                                                    "neg_proportions","neg_basis")
-=======
                                                     "neg_proportions","neg_basis","orig_deconv_error")
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
       }
       toPlot <- data.frame(self$errors_statistics[,c("iteration",filter_var,variables)]) %>% filter(.data[[filter_var]]==1)
       if (!is.null(tail_rows)) {
