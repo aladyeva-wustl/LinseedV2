@@ -813,10 +813,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   self$count_neg_basis <- sum(self$W_ < -1e-10)
           
   error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-<<<<<<< HEAD
-=======
   orig_deconv_error <- norm(V__ - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
->>>>>>> 6f9de9c4e3a10f904f3c4d85dcbbf3b02db0aad3
   lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
   beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
   D_h_error <-
