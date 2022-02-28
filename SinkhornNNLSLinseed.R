@@ -366,7 +366,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
   V__ <- self$S %*% self$V_row %*% t(self$R)
   
   ## optimization
-  self$init_errors_statistics <- matrix(0,nrow=0,ncol=4)
+  self$init_errors_statistics <- matrix(0,nrow=0,ncol=5)
   
   for (c in 1:global_iters_) {
     for (t in 1:iters_) {
