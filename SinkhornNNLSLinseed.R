@@ -525,6 +525,27 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
 
       grid.arrange(pltX,pltOmega,nrow=1)
     },
+
+    logError = function(cnt,t,marks_) {
+      error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
+      orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
+      lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
+      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
+      D_h_error <- self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
+      D_w_error <- self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
+      new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
+      
+      self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,marks_,
+                                                           error_,
+                                                           lambda_error,
+                                                           D_h_error,
+                                                           beta_error,
+                                                           D_w_error,
+                                                           new_error,
+                                                           self$count_neg_props,
+                                                           self$count_neg_basis,
+                                                           orig_deconv_error))
+    },
     
     runOptimization = function(debug=FALSE, idx = NULL, startWithInit = T) {
       
@@ -554,18 +575,12 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
       self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
       self$init_count_neg_basis <- sum(self$W_ < -1e-10)
 
-      error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-      orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-      lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega)
-      D_h_error <- self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-      D_w_error <- self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-      prev_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-      self$errors_statistics <- rbind(self$errors_statistics, c(cnt,t,1,1,1,1,error_,
-      lambda_error,D_h_error,beta_error,D_w_error,prev_error,self$init_count_neg_props,self$init_count_neg_basis,orig_deconv_error))
-
       self$count_neg_props <- self$init_count_neg_props
       self$count_neg_basis <- self$init_count_neg_basis
+
+      self$logError(cnt,t,c(1,1,1,1))
+
+      
       
       ## Stage I. Optimization of deconvolution and negative basis/proportions
       
@@ -579,6 +594,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
       }
 
 for (t in seq(start_idx,length.out=self$global_iterations)) {
+  # update X
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
   der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R)
   der_X_f <- der_X
@@ -590,29 +606,12 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
   self$count_neg_props <- sum(self$full_proportions < -1e-10)
   
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,1,0,0,0,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
-  
+
+  self$logError(cnt,t,c(1,0,0,0))
+
+  # update D
+
     ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
     for (col_ in 1:self$cell_types) {
@@ -620,32 +619,14 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+    self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
     self$D_h <- self$D_w * (self$N/self$M)
   
-  
-  
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,0,1,0,0,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
+
+  self$logError(cnt,t,c(0,1,0,0))
+  
+  # update Omega
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
@@ -657,28 +638,11 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
   self$count_neg_basis <- sum(self$W_ < -1e-10)
           
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,0,0,1,0,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
+
+  self$logError(cnt,t,c(0,0,1,0))
+
+  # update D
   
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
@@ -687,29 +651,13 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+    self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
     self$D_h <- self$D_w * (self$N/self$M)
   
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,0,0,0,1,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis))
+
+  self$logError(cnt,t,c(0,0,0,1))
+
   if (debug) {
         cat(paste("\n",cnt,":",
                   "\nIteration:",t,
@@ -745,62 +693,25 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
   self$count_neg_props <- sum(self$full_proportions < -1e-10)
   
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,1,0,0,0,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
-  
-  ## vectorizing deconvolution
+
+  self$logError(cnt,t,c(1,0,0,0))
+
+  # update D
+
+    ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
     for (col_ in 1:self$cell_types) {
         vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+    self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
     self$D_h <- self$D_w * (self$N/self$M)
   
-  
-  
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,0,1,0,0,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
+
+  self$logError(cnt,t,c(0,1,0,0))
   
   der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
   
@@ -812,28 +723,11 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
   self$count_neg_basis <- sum(self$W_ < -1e-10)
           
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,0,0,1,0,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
+
+  self$logError(cnt,t,c(0,0,1,0))
+
+  # update D
   
   ## vectorizing deconvolution
     vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
@@ -842,32 +736,13 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
     }
     ## adding sum-to-one constraint
     self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+    self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
     self$D_h <- self$D_w * (self$N/self$M)
   
-  
-  
-  error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
-  D_h_error <-
-  self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
-  D_w_error <-
-  self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
-          
-  new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
-          
   cnt <- cnt + 1
-  self$errors_statistics <- rbind(self$errors_statistics,c(cnt,t,0,0,0,1,
-                                                                   error_,
-                                                                   lambda_error,
-                                                                   D_h_error,
-                                                                   beta_error,
-                                                                   D_w_error,
-                                                                   new_error,
-                                                                   self$count_neg_props,
-                                                                   self$count_neg_basis,
-                                                                   orig_deconv_error))
+
+  self$logError(cnt,t,c(0,0,0,1))
+
 
   if (debug) {
         cat(paste("\n",cnt,":",
@@ -885,6 +760,8 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   
   pb$tick()
 }
+
+self$coef_der_X <- self$coef_der_X * 10
 
       colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
                                                     "deconv_error","lamdba_error","D_h_error",
