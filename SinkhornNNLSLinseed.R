@@ -527,6 +527,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
     },
 
     logError = function(cnt,t,marks_) {
+      V__ <- self$S %*% self$V_row %*% t(self$R)
       error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
       orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
       lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
