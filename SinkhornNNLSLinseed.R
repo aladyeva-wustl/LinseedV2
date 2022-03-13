@@ -642,7 +642,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   
   cnt <- cnt + 1
 
-  self$logError(cnt,t,c(1,0,0,0))
+  self$logError(cnt,t,c(1,1,1,1))
 
 
   if (debug) {
