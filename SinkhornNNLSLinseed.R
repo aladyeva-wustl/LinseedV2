@@ -425,7 +425,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
     },
     
     
-    hinge_der_proportions = function(H,R){
+    hinge_der_proportions = function(H,R,precision_=1e-10){
       m <- nrow(H)
       n <- ncol(H)
       der_R <- list()
@@ -433,7 +433,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
         der_loc_R <- matrix(0,nrow=m,ncol=n)
         for (i in 1:m) {
           for (j in 1:n) {
-            if (H[i,j] < -1e-10) {
+            if (H[i,j] < -precision_) {
               der_loc_R[i,j] <- -R[c,j]
             }
           }
@@ -449,27 +449,27 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
       res
     },
     
-    hinge_der_basis = function(W,S){
+    hinge_der_basis = function(W,S,precision_=1e-10){
       
       n <- ncol(W)
       res <- matrix(0,nrow=n,ncol=n)
       
       for (j in 1:n) {
-        if (any(W[,j] < -1e-10)) {
-          res[,j] <- -apply(t(S)[which(W[,j] < -1e-10),,drop=F],2,sum)
+        if (any(W[,j] < -precision_)) {
+          res[,j] <- -apply(t(S)[which(W[,j] < -precision_),,drop=F],2,sum)
         }
       }
       res[1,] <- 0
       res
     },
     
-    hinge_der = function(X,D) {
+    hinge_der = function(X,D,precision_=1e-10) {
       N <- ncol(X)
       M <- nrow(X)
       h <- matrix(0,nrow=M,ncol=N)
       for (i in 1:N) {
         for (j in 1:M) {
-          if (X[i,j] < 0) {
+          if (X[i,j] < -precision_) {
             h[i,j] <- -D[i,j]
           }
         }  
@@ -547,7 +547,11 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
                                                            orig_deconv_error))
     },
     
-    runOptimization = function(debug=FALSE, idx = NULL, startWithInit = T) {
+    runOptimization = function(debug=FALSE, idx = NULL, 
+        startWithInit = T, repeats_=5, iters_=100,
+        runStageI = T) {
+
+      
       
       V__ <- self$S %*% self$V_row %*% t(self$R)
       prev_ct <- self$cell_types-1
@@ -580,9 +584,8 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
 
       self$logError(cnt,t,c(1,1,1,1))
 
-      
-      
-      ## Stage I. Optimization of deconvolution and negative basis/proportions
+      if (runStageI) {
+          ## Stage I. Optimization of deconvolution and negative basis/proportions
       
       pb <- progress_bar$new(
         format = "Optimization. Stage I [:bar] :percent eta: :eta",
@@ -593,70 +596,54 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
          start_idx <- max(self$errors_statistics[,2])+1
       }
 
-for (t in seq(start_idx,length.out=self$global_iterations)) {
-  # update X
-  der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
-  der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R)
-  der_X_f <- der_X
-  der_X_f[,1] <- 0
-  self$X <- self$X - (self$coef_der_X*der_X_f)
+      splits <- seq(0,1,length.out=repeats_+1)
+splits <- rep(splits[2:repeats_],each=2)
+intervals <- cut(seq(start_idx,length.out=self$global_iterations),breaks = 2*(repeats_-1),labels=F)
 
+for (t in seq(start_idx,length.out=self$global_iterations)) {
+  if (intervals[t] %% 2==0) {
+    coef_ <- splits[intervals[t]]
+  } else {
+    coef_ <- 1
+  }
+  
+  
+  for (tt in 1:iters_) {
+    der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
+    der_X <- der_X + coef_ * self$coef_hinge_H * self$hinge_der_proportions(self$X %*% self$R, self$R)
+    der_X_f <- der_X
+    der_X_f[,1] <- 0
+    self$X <- self$X - (self$coef_der_X*der_X_f)
+    
+    der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
+    der_Omega <- der_Omega + coef_ * self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S)
+    der_Omega_f <- der_Omega
+    der_Omega_f[1,] <- 0
+    self$Omega <- self$Omega - (self$coef_der_Omega*der_Omega_f)
+  }
+  
+  ## vectorizing deconvolution
+  vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+  for (col_ in 1:self$cell_types) {
+    vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
+  }
+  ## adding sum-to-one constraint
+  self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+  self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
+  self$D_h <- self$D_w * (self$N/self$M)
+  
   self$H_ <- self$X %*% self$R
   
   self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
   self$count_neg_props <- sum(self$full_proportions < -1e-10)
   
+  self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
+  self$count_neg_basis <- sum(self$W_ < -1e-10)
+  
   cnt <- cnt + 1
 
   self$logError(cnt,t,c(1,0,0,0))
 
-  # update D
-
-    ## vectorizing deconvolution
-    vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
-    for (col_ in 1:self$cell_types) {
-        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
-    }
-    ## adding sum-to-one constraint
-    self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-    self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
-    self$D_h <- self$D_w * (self$N/self$M)
-  
-  cnt <- cnt + 1
-
-  self$logError(cnt,t,c(0,1,0,0))
-  
-  # update Omega
-  
-  der_Omega <- -2*(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X) %*% t(self$X) %*% t(diag(self$D_w[,1]))
-  
-  der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$Omega, self$S)
-  der_Omega_f <- der_Omega
-  der_Omega_f[1,] <- 0
-  self$Omega <- self$Omega - (self$coef_der_Omega*der_Omega_f)
-  
-  self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
-  self$count_neg_basis <- sum(self$W_ < -1e-10)
-          
-  cnt <- cnt + 1
-
-  self$logError(cnt,t,c(0,0,1,0))
-
-  # update D
-  
-  ## vectorizing deconvolution
-    vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
-    for (col_ in 1:self$cell_types) {
-        vec_mtx[,col_] <- cbind(c(t(t(self$Omega[,col_])) %*% self$X[col_,]))
-    }
-    ## adding sum-to-one constraint
-    self$D_w <- matrix(nnls(rbind(vec_mtx,self$Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-    self$D_w[self$D_w==0] <- self$D_w[self$D_w==0] + 1e-09
-    self$D_h <- self$D_w * (self$N/self$M)
-  
-  cnt <- cnt + 1
-
-  self$logError(cnt,t,c(0,0,0,1))
 
   if (debug) {
         cat(paste("\n",cnt,":",
@@ -674,12 +661,15 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   
   pb$tick()
 }
+      }
+      
+      
 
       ## Stage II. Optimization of deconvolution and negative basis/proportions with sum-to-one constraints
-      self$coef_der_X <- self$coef_der_X / 10
+      #self$coef_der_X <- self$coef_der_X / 10
 
 pb <- progress_bar$new(
-        format = "Optimization. Stage II [:bar] :percent eta: :eta",
+        format = "Optimization. Stage III [:bar] :percent eta: :eta",
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
@@ -761,7 +751,7 @@ for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iteration
   pb$tick()
 }
 
-self$coef_der_X <- self$coef_der_X * 10
+#self$coef_der_X <- self$coef_der_X * 10
 
       colnames(self$errors_statistics) <- c("idx","iteration","is_X","is_D_X","is_Omega","is_D_Omega",
                                                     "deconv_error","lamdba_error","D_h_error",
