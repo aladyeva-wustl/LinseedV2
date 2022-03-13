@@ -549,7 +549,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
     
     runOptimization = function(debug=FALSE, idx = NULL, 
         startWithInit = T, repeats_=5, iters_=100,
-        runStageI = T) {
+        runInitOptim = T) {
 
       
       
@@ -584,7 +584,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
 
       self$logError(cnt,t,c(1,1,1,1))
 
-      if (runStageI) {
+      if (runInitOptim) {
           ## Stage I. Optimization of deconvolution and negative basis/proportions
       
       pb <- progress_bar$new(
