@@ -526,12 +526,12 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
       grid.arrange(pltX,pltOmega,nrow=1)
     },
 
-    logError = function(cnt,t,marks_) {
+    logError = function(cnt,t,marks_,coef_=1) {
       V__ <- self$S %*% self$V_row %*% t(self$R)
       error_ <- norm(V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X,"F")^2
       orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$Omega %*% diag(self$D_w[,1]) %*% self$X %*% self$R,"F")^2
-      lambda_error <- self$coef_hinge_H * self$hinge(self$X %*% self$R)
-      beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
+      lambda_error <- coef_ * self$coef_hinge_H * self$hinge(self$X %*% self$R)
+      beta_error <- coef_ * self$coef_hinge_W * self$hinge(t(self$S) %*% self$Omega) 
       D_h_error <- self$coef_pos_D_h * norm(t(self$X)%*%self$D_h-self$A,"F")^2
       D_w_error <- self$coef_pos_D_w * norm(self$Omega%*%self$D_w-self$B,"F")^2
       new_error <- error_ + lambda_error + beta_error + D_h_error + D_w_error
@@ -643,7 +643,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
   
   cnt <- cnt + 1
 
-  self$logError(cnt,t,c(1,1,1,1))
+  self$logError(cnt,t,c(1,1,1,1),coef_)
 
 
   if (debug) {
