@@ -413,15 +413,7 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
     },
     
     hinge = function(X) {
-      N <- ncol(X)
-      M <- nrow(X)
-      h <- 0
-      for (i in 1:N) {
-        for (j in 1:M) {
-          h <- h + max(-X[j,i],0)
-        }  
-      }
-      return(h)
+      sum(pmax(-X,0))
     },
     
     
