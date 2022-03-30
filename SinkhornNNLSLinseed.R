@@ -361,44 +361,6 @@ SinkhornNNLSLinseed <- R6Class(
               idsTableX = idxTableX[1:top,]))
 },
 
-runInitOptimization = function(global_iters_=200, iters_=100) {
-  
-  V__ <- self$S %*% self$V_row %*% t(self$R)
-  
-  ## optimization
-  self$init_errors_statistics <- matrix(0,nrow=0,ncol=5)
-  
-  for (c in 1:global_iters_) {
-    for (t in 1:iters_) {
-      der_X <- -2*(t(diag(self$init_D_w[,1])) %*% t(self$init_Omega) %*% (V__ - self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X))
-      der_X <- der_X + self$coef_hinge_H * self$hinge_der_proportions(self$init_X %*% self$R, self$R)
-      der_X_f <- der_X
-      der_X_f[,1] <- 0
-      self$init_X <- self$init_X - (self$coef_der_X*der_X_f)
-  
-      der_Omega <- -2*(V__ - self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X) %*% t(self$init_X) %*% t(diag(self$init_D_w[,1]))
-      der_Omega <- der_Omega + self$coef_hinge_W * self$hinge_der_basis(t(self$S)%*%self$init_Omega, self$S)
-      der_Omega_f <- der_Omega
-      der_Omega_f[1,] <- 0
-      self$init_Omega <- self$init_Omega - (self$coef_der_Omega*der_Omega_f)
-    }
-  vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
-  for (col_ in 1:self$cell_types) {
-    vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
-  }
-  self$init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-  self$init_D_h <- self$init_D_w * (self$N/self$M)
-
-  error_ <- norm(V__ - self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X ,"F")^2
-  orig_deconv_error <- norm(self$V_row - t(self$S) %*% self$init_Omega %*% diag(self$init_D_w[,1]) %*% self$init_X %*% self$R,"F")^2
-  lambda_error <- self$coef_hinge_H * self$hinge(self$init_X %*% self$R)
-  beta_error <- self$coef_hinge_W * self$hinge(t(self$S) %*% self$init_Omega)
-  self$init_errors_statistics <- rbind(self$init_errors_statistics,
-                                  c(error_,lambda_error,beta_error,error_+lambda_error+beta_error,orig_deconv_error))
-  }
-  
-},
-
     readInitValues = function(file) {
       initValues <- readRDS(file)
       ## Omega
@@ -447,26 +409,11 @@ runInitOptimization = function(global_iters_=200, iters_=100) {
       res <- matrix(0,nrow=n,ncol=n)
       
       for (j in 1:n) {
-        if (any(W[,j] < -precision_)) {
-          res[,j] <- -apply(t(S)[which(W[,j] < -precision_),,drop=F],2,sum)
-        }
+        idx <- which(W[,j] < -precision_,arr.ind = T)
+        res[,j] <- -apply(S[,idx,drop=F],1,sum)
       }
       res[1,] <- 0
       res
-    },
-    
-    hinge_der = function(X,D,precision_=1e-10) {
-      N <- ncol(X)
-      M <- nrow(X)
-      h <- matrix(0,nrow=M,ncol=N)
-      for (i in 1:N) {
-        for (j in 1:M) {
-          if (X[i,j] < -precision_) {
-            h[i,j] <- -D[i,j]
-          }
-        }  
-      }
-      return(h)
     },
 
     plotPoints2D = function(points="init",dims=3) {
@@ -662,7 +609,7 @@ for (t in seq(start_idx,length.out=self$global_iterations)) {
       #self$coef_der_X <- self$coef_der_X / 10
 
 pb <- progress_bar$new(
-        format = "Optimization. Stage III [:bar] :percent eta: :eta",
+        format = "Optimization. Stage II [:bar] :percent eta: :eta",
         total = self$global_iterations, clear = FALSE, width= 60)
 for (t in seq(max(self$errors_statistics[,2])+1,length.out=self$global_iterations)) {
   der_X <- -2*(t(diag(self$D_w[,1])) %*% t(self$Omega) %*% (V__ - self$Omega %*% diag(self$D_w[,1]) %*% self$X))
