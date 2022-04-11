@@ -373,6 +373,15 @@ SinkhornNNLSLinseed <- R6Class(
       ## X
       self$init_X <- initValues$init_X
     },
+
+    readRProjection = function(file) {
+      initValues <- readRDS(file)
+      ## R projection
+      self$R <- initValues$R
+      self$A <- matrix(apply(self$R,1,sum),ncol=1,nrow=self$cell_types)
+      self$new_points <- self$V_row %*% t(self$R)
+
+    },
     
     hinge = function(X) {
       sum(pmax(-X,0))
@@ -438,13 +447,13 @@ SinkhornNNLSLinseed <- R6Class(
       Omega <- Omega[1:dims,]
 
       ## plot X
-      toPlot <- as.data.frame(self$V_row %*% t(self$R))[,1:dims]
-      colnames(toPlot) <- c("X","Y","Z")
-      colnames(X) <- c("X","Y","Z")
-      pltX <- ggplot(toPlot, aes(x=Y, y=Z)) +
-        geom_point() + 
-        geom_polygon(data=as.data.frame(X), fill=NA, color = "green") +
-        theme_minimal()
+        toPlot <- as.data.frame(self$V_row %*% t(self$R))[,1:dims]
+        colnames(toPlot) <- c("X","Y","Z")
+        colnames(X) <- c("X","Y","Z")
+        pltX <- ggplot(toPlot, aes(x=Y, y=Z)) +
+          geom_point() + 
+          geom_polygon(data=as.data.frame(X), fill=NA, color = "green") +
+          theme_minimal()
       if (!is.null(count_neg_props)) {
         pltX <- pltX + annotate("text",  x=Inf, y = Inf, label = paste0(round(count_neg_props / (self$cell_types*self$N),4)*100,"%"), vjust=1, hjust=1)
       }
