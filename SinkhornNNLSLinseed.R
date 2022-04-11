@@ -218,7 +218,12 @@ SinkhornNNLSLinseed <- R6Class(
         pb$tick()
       }
       self$V_row <- V_row
+      rownames(self$V_row) <- rownames(self$filtered_dataset)
+      colnames(self$V_row) <- colnames(self$filtered_dataset)
+
       self$V_column <- V_column
+      rownames(self$V_column) <- rownames(self$filtered_dataset)
+      colnames(self$V_column) <- colnames(self$filtered_dataset)
     },
     
     getSvdProjections = function(k = self$cell_types) {
@@ -374,12 +379,16 @@ SinkhornNNLSLinseed <- R6Class(
       self$init_X <- initValues$init_X
     },
 
-    readRProjection = function(file) {
+    readProjections = function(file) {
       initValues <- readRDS(file)
       ## R projection
       self$R <- initValues$R
+      self$S <- initValues$S
+      
       self$A <- matrix(apply(self$R,1,sum),ncol=1,nrow=self$cell_types)
       self$new_points <- self$V_row %*% t(self$R)
+      self$B <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
+      self$new_samples_points <- t(self$S %*% self$V_column)
 
     },
     
