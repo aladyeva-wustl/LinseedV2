@@ -534,7 +534,7 @@ SinkhornNNLSLinseed <- R6Class(
       if (runInitOptim) {
          splits <- seq(0,1,length.out=repeats_+1)
          splits <- rep(splits[2:repeats_],each=2)
-         intervals <- cut(seq(start_idx,length.out=self$global_iterations),breaks = 2*(repeats_-1),labels=F)
+         intervals <- cut(seq(1,length.out=self$global_iterations),breaks = 2*(repeats_-1),labels=F)
       }
 
 
