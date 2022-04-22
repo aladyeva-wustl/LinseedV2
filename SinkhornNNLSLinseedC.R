@@ -529,7 +529,7 @@ SinkhornNNLSLinseed <- R6Class(
       self$Omega <- res_$new_Omega
       self$D_w <- res_$new_D_w
       self$D_h <- res_$new_D_h
-      self$errors_statistics <- res_$errors_statistics
+      self$errors_statistics <- res_$errors
   
       colnames(self$errors_statistics) <- c("deconv_error","lamdba_error","beta_error",
                                             "D_h_error","D_w_error","total_error","orig_deconv_error")
