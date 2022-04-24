@@ -1,4 +1,7 @@
 
+library(linseed)
+library(limma)
+
 generateBasis <- function(genes,cellTypes,sd_=0.2) {
   
   data_1 <- c(rnorm(genes*2,mean=4,sd=0.75),rnorm(genes*3,mean=10,sd=1.5))
