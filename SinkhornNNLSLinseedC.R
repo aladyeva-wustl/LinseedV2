@@ -69,6 +69,8 @@ SinkhornNNLSLinseed <- R6Class(
     count_neg_props = NULL,
     count_neg_basis = NULL,
     errors_statistics = NULL,
+    points_statistics_X = NULL,
+    points_statistics_Omega = NULL,
     init_errors_statistics = NULL,
     genes_mean = NULL,
     genes_sd = NULL,
@@ -530,6 +532,8 @@ SinkhornNNLSLinseed <- R6Class(
       self$D_w <- res_$new_D_w
       self$D_h <- res_$new_D_h
       self$errors_statistics <- res_$errors
+      self$points_statistics_X <- res_$points_X
+      self$points_statistics_Omega <- res_$points_Omega
   
       colnames(self$errors_statistics) <- c("deconv_error","lamdba_error","beta_error",
                                             "D_h_error","D_w_error","total_error","orig_deconv_error",
