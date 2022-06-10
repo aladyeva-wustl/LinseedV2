@@ -429,7 +429,46 @@ SinkhornNNLSLinseed <- R6Class(
       Ae <- self$V_row[ids_X,]
       self$init_X <- Ae %*% t(self$R)
       
+      V__ <- self$S %*% self$V_row %*% t(self$R)
+      ## calculate D_w and D_h
+      ## vectorizing deconvolution
+      vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+      for (col_ in 1:self$cell_types) {
+        vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
+      }
+      ## adding sum-to-one constraint
+      init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+      init_D_h <- init_D_w * (self$N/self$M)
+    },
+    
+    selectInitRandomCentered = function(seed = NULL) {
+      set.seed(seed)
       
+      #Omega
+      ids_Omega <- sample(1:self$N,(self$cell_types-1))  
+      Ae <- self$V_column[,ids_Omega]
+      
+      init_Omega <- self$S %*% Ae
+      self$init_Omega <- cbind(c(1/sqrt(self$M),-apply(init_Omega[-1,],1,sum)),
+                          init_Omega)
+      
+      #X
+      ids_X <- sample(1:self$N,(self$cell_types-1))
+      Ae <- self$V_row[ids_X,]
+      init_X <- Ae %*% t(self$R)
+      self$init_X <- rbind(c(1/sqrt(self$N),-apply(init_X[,-1],2,sum)),
+                           init_X)
+      
+      V__ <- self$S %*% self$V_row %*% t(self$R)
+      ## calculate D_w and D_h
+      ## vectorizing deconvolution
+      vec_mtx <- matrix(0,self$cell_types*self$cell_types,self$cell_types)
+      for (col_ in 1:self$cell_types) {
+        vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
+      }
+      ## adding sum-to-one constraint
+      init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+      init_D_h <- init_D_w * (self$N/self$M)
     },
 
   initWithSubset = function(n,top) {
