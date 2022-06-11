@@ -304,38 +304,6 @@ SinkhornNNLSLinseed <- R6Class(
       rownames(self$V_column) <- rownames(self$filtered_dataset)
       colnames(self$V_column) <- colnames(self$filtered_dataset)
     },
-    
-    getSvdProjections = function(k = self$cell_types) {
-      V <- self$V_row
-      
-      #R
-      R_0 <- matrix(1/sqrt(self$N),ncol=self$N,nrow=1)
-      V_t <- t(V)-(t(R_0) %*% R_0 %*% t(V))
-      svd_ <- svd(V_t)
-      
-      svd_k <- matrix(0,ncol=self$N,nrow=k)
-      svd_k[1,] <- R_0
-      svd_k[2:k,] <- t(svd_$u[,1:(k-1)])
-      
-      
-      self$R <- svd_k
-      self$A <- matrix(apply(self$R,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_points <- self$V_ %*% t(self$R)
-      
-      #S
-      V_col <- t(self$V_column)
-      S_0 <- matrix(1/sqrt(self$M),ncol=self$M,nrow=1)
-      V_m <- t(V_col) - t(S_0) %*% S_0 %*% t(V_col)
-      svd_ <- svd(V_m)
-      
-      svd_s_k <- matrix(0,ncol=self$M,nrow=k)
-      svd_s_k[1,] <- S_0
-      svd_s_k[2:k,] <- t(svd_$u[,1:(k-1)])
-      
-      self$S <- svd_s_k
-      self$B <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_samples_points <- t(self$S %*% t(V_col))
-    },
 
     getSvdProjectionsNew = function(k = self$cell_types){
       svd_ <- svd(self$V_row)
@@ -352,7 +320,9 @@ SinkhornNNLSLinseed <- R6Class(
       self$new_samples_points <- t(self$S %*% self$V_column)
     },
     
-    selectInitOmega = function() {
+    selectInitOmega = function(seed = NULL) {
+      set.seed(seed)
+      
       restored <- t(self$S) %*% t(self$new_samples_points)
       p <- self$cell_types
       x <- t(self$new_samples_points)
@@ -384,7 +354,9 @@ SinkhornNNLSLinseed <- R6Class(
       self$init_X <- ginv(self$init_Omega %*% diag(self$init_D_w[,1])) %*% V__
     },
 
-    selectInitX = function() {
+    selectInitX = function(seed = NULL) {
+      set.seed(seed)
+      
       restored <- self$new_points %*% self$R
       p <- self$cell_types
 
@@ -437,8 +409,8 @@ SinkhornNNLSLinseed <- R6Class(
         vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
       }
       ## adding sum-to-one constraint
-      init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-      init_D_h <- init_D_w * (self$N/self$M)
+      self$init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+      self$init_D_h <- self$init_D_w * (self$N/self$M)
     },
     
     selectInitRandomCentered = function(seed = NULL) {
@@ -467,8 +439,8 @@ SinkhornNNLSLinseed <- R6Class(
         vec_mtx[,col_] <- cbind(c(t(t(self$init_Omega[,col_])) %*% self$init_X[col_,]))
       }
       ## adding sum-to-one constraint
-      init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
-      init_D_h <- init_D_w * (self$N/self$M)
+      self$init_D_w <- matrix(nnls(rbind(vec_mtx,self$init_Omega),rbind(cbind(c(V__)),self$B))$x,nrow=self$cell_types,ncol=1)
+      self$init_D_h <- self$init_D_w * (self$N/self$M)
     },
 
   initWithSubset = function(n,top) {
