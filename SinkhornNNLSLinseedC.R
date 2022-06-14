@@ -13,8 +13,6 @@ SinkhornNNLSLinseed <- R6Class(
   "SinkhornNNLSLinseed",
   public = list(
     filtered_samples = NULL,
-    filtered_dataset = NULL,
-    raw_dataset = NULL,
     linseed_object = NULL,
     path_ = NULL,
     analysis_name = NULL,
@@ -38,10 +36,13 @@ SinkhornNNLSLinseed <- R6Class(
     full_basis = NULL,
     distance_genes = NULL,
     distance_samples = NULL,
-    data = NULL,
 
+    filtered_dataset = NULL,
+    raw_dataset = NULL,
+    data = NULL,
     V_row = NULL,
     V_column = NULL,
+
     M = NULL,
     N = NULL,
     Sigma = NULL,
@@ -53,12 +54,8 @@ SinkhornNNLSLinseed <- R6Class(
     Omega = NULL,
     W_ = NULL,
     H_ = NULL,
-
     D_h = NULL,
     D_w = NULL,
-    D = NULL,
-    D_v_row = NULL,
-    D_v_column = NULL,
 
     init_D_w = NULL,
     init_D_h = NULL,
@@ -292,10 +289,10 @@ SinkhornNNLSLinseed <- R6Class(
         total = iterations, clear = FALSE, width= 60)
 
       for (i in 1:iterations) {
-        self$D_v_row <- diag(1/rowSums(V_column))
-        V_row <- self$D_v_row %*% V_column
-        self$D_v_column <- diag(1/rowSums(t(V_row)))
-        V_column <- V_row %*% self$D_v_column
+        D_v_row <- diag(1/rowSums(V_column))
+        V_row <- D_v_row %*% V_column
+        D_v_column <- diag(1/rowSums(t(V_row)))
+        V_column <- V_row %*% D_v_column
         pb$tick()
       }
       self$V_row <- V_row
