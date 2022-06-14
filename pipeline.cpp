@@ -170,7 +170,7 @@ field<mat> derivative_stage1(const arma::mat& X,
                            arma::mat& errors_statistics,
                            arma::mat& points_statistics_X,
                            arma::mat& points_statistics_Omega,
-                           const int steps = 100) {
+                           const int steps = 5) {
   
   arma::mat new_X = X;
   arma::mat new_Omega = Omega;
