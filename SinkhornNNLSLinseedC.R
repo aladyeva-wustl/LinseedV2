@@ -19,18 +19,19 @@ SinkhornNNLSLinseed <- R6Class(
     path_ = NULL,
     analysis_name = NULL,
     dataset = NULL,
-    topGenes = NULL,
+    preselectGenes = NULL,
     cell_types = NULL,
-    samples = NULL,
     coef_der_X = NULL,
     coef_der_Omega = NULL,
     coef_hinge_H = NULL,
     coef_hinge_W = NULL,
     coef_pos_D_w = NULL,
     coef_pos_D_h = NULL,
+
     global_iterations = NULL,
-    new_points = NULL,
-    new_samples_points = NULL,
+    genes_points = NULL,
+    samples_points = NULL,
+
     orig_full_proportions = NULL,
     full_proportions = NULL,
     orig_full_basis = NULL,
@@ -38,6 +39,7 @@ SinkhornNNLSLinseed <- R6Class(
     distance_genes = NULL,
     distance_samples = NULL,
     data = NULL,
+
     V_row = NULL,
     V_column = NULL,
     M = NULL,
@@ -66,15 +68,15 @@ SinkhornNNLSLinseed <- R6Class(
     init_W = NULL,
     init_Omega = NULL,
 
-    unity = NULL,
     init_count_neg_props = NULL,
     init_count_neg_basis = NULL,
     count_neg_props = NULL,
     count_neg_basis = NULL,
+
     errors_statistics = NULL,
     points_statistics_X = NULL,
     points_statistics_Omega = NULL,
-    init_errors_statistics = NULL,
+
     genes_mean = NULL,
     genes_sd = NULL,
     genes_mad = NULL,
@@ -108,7 +110,7 @@ SinkhornNNLSLinseed <- R6Class(
                           analysis_name,
                           cell_types,
                           filtered_samples = c(),
-                          topGenes = 100000,
+                          preselectGenes = 100000,
                           data = NULL,
                           metric="mad",
                           coef_der_X = 0.00001,
@@ -122,11 +124,10 @@ SinkhornNNLSLinseed <- R6Class(
       self$dataset <- dataset
       self$path_ <- path
       self$analysis_name <- analysis_name
-      self$topGenes <- topGenes
+      self$preselectGenes <- preselectGenes
       self$cell_types <- cell_types
       
       self$data <- data
-      self$unity <- matrix(1, nrow = self$cell_types, ncol = 1)
       
       self$coef_der_X <- coef_der_X
       self$coef_der_Omega <- coef_der_Omega
@@ -146,12 +147,12 @@ SinkhornNNLSLinseed <- R6Class(
       if (length(self$filtered_samples) != 0) {
         self$linseed_object <- LinseedObject$new(
           input_data,
-          topGenes = self$topGenes,
+          topGenes = self$preselectGenes,
           samples = self$filtered_samples
         )
       } else {
         self$linseed_object <- LinseedObject$new(input_data,
-                                                 topGenes = self$topGenes)
+                                                 topGenes = self$preselectGenes)
       }
       
       self$filtered_dataset <- self$linseed_object$exp$full$norm
@@ -160,8 +161,6 @@ SinkhornNNLSLinseed <- R6Class(
       self$genes_mean <- apply(self$raw_dataset,1,mean)
       self$genes_sd <- apply(self$raw_dataset,1,sd)
       self$genes_mad <- apply(self$raw_dataset,1,mad)
-      
-      self$samples <- ncol(self$filtered_dataset)
       self$metric <- metric
 
       self$N <- ncol(self$filtered_dataset)
@@ -317,18 +316,18 @@ SinkhornNNLSLinseed <- R6Class(
       self$R[1,] <- -self$R[1,]
 
       self$A <- matrix(apply(self$R,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_points <- self$V_row %*% t(self$R)
+      self$genes_points <- self$V_row %*% t(self$R)
 
       self$B <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_samples_points <- t(self$S %*% self$V_column)
+      self$samples_points <- t(self$S %*% self$V_column)
     },
     
     selectInitOmega = function(seed = NULL) {
       set.seed(seed)
       
-      restored <- t(self$S) %*% t(self$new_samples_points)
+      restored <- t(self$S) %*% t(self$samples_points)
       p <- self$cell_types
-      x <- t(self$new_samples_points)
+      x <- t(self$samples_points)
       u <- rowMeans(x)
       y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
       
@@ -360,10 +359,10 @@ SinkhornNNLSLinseed <- R6Class(
     selectInitX = function(seed = NULL) {
       set.seed(seed)
       
-      restored <- self$new_points %*% self$R
+      restored <- self$genes_points %*% self$R
       p <- self$cell_types
 
-      x <- t(self$new_points)
+      x <- t(self$genes_points)
       u <- rowMeans(x)
       y <- x / matrix(kronecker(colSums(x * u), rep(1, p)), nrow=p)
 
@@ -392,7 +391,7 @@ SinkhornNNLSLinseed <- R6Class(
     },
     
     selectInitRandom = function(seed = NULL,
-                                n = 1000) {
+                                n = 10000) {
       set.seed(seed)
       
       idxTableX <- matrix(0,ncol=self$cell_types+1,nrow=n)
@@ -520,51 +519,9 @@ SinkhornNNLSLinseed <- R6Class(
       self$S <- initValues$S
       
       self$A <- matrix(apply(self$R,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_points <- self$V_row %*% t(self$R)
+      self$genes_points <- self$V_row %*% t(self$R)
       self$B <- matrix(apply(self$S,1,sum),ncol=1,nrow=self$cell_types)
-      self$new_samples_points <- t(self$S %*% self$V_column)
-    },
-    
-    hinge = function(X) {
-      sum(pmax(-X,0))
-    },
-    
-    
-    hinge_der_proportions = function(H,R,precision_=1e-10){
-      m <- nrow(H)
-      n <- ncol(H)
-      der_R <- list()
-      for (c in 1:m) {
-        der_loc_R <- matrix(0,nrow=m,ncol=n)
-        for (i in 1:m) {
-          for (j in 1:n) {
-            if (H[i,j] < -precision_) {
-              der_loc_R[i,j] <- -R[c,j]
-            }
-          }
-        }
-        der_R[[c]] <- der_loc_R
-      }
-      res <- matrix(0,nrow=m,ncol=m)
-      for (c in 1:m) {
-        mtx <- der_R[[c]]
-        res[,c] <- apply(mtx,1,sum)
-      }
-      res[,1] <- 0
-      res
-    },
-    
-    hinge_der_basis = function(W,S,precision_=1e-10){
-      
-      n <- ncol(W)
-      res <- matrix(0,nrow=n,ncol=n)
-      
-      for (j in 1:n) {
-        idx <- which(W[,j] < -precision_,arr.ind = T)
-        res[,j] <- -apply(S[,idx,drop=F],1,sum)
-      }
-      res[1,] <- 0
-      res
+      self$samples_points <- t(self$S %*% self$V_column)
     },
 
     plotPoints2D = function(points="init",dims=3) {
@@ -616,37 +573,30 @@ SinkhornNNLSLinseed <- R6Class(
       grid.arrange(pltX,pltOmega,nrow=1)
     },
     
-    runOptimization = function(debug=FALSE, idx = NULL, 
-        repeats_=5, runInitOptim = T) {
+    runOptimization = function(repeats_ = 5, negativity_limit = -1e-10) {
 
       V__ <- self$S %*% self$V_row %*% t(self$R)
   
-        self$errors_statistics <- NULL
-     
-        self$X <- self$init_X
-        self$D_w <- self$init_D_w
-        self$Omega <- self$init_Omega
-     
-        self$D_h <- self$init_D_h
+      self$errors_statistics <- NULL
+    
+      self$X <- self$init_X
+      self$D_w <- self$init_D_w
+      self$Omega <- self$init_Omega
+    
+      self$D_h <- self$init_D_h
 
       self$H_ <- self$X %*% self$R
       self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
-      self$init_count_neg_props <- sum(self$full_proportions < -1e-10)
+      self$init_count_neg_props <- sum(self$full_proportions < negativity_limit)
   
-      self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
-      self$init_count_neg_basis <- sum(self$W_ < -1e-10)
-
-      self$count_neg_props <- self$init_count_neg_props
-      self$count_neg_basis <- self$init_count_neg_basis
+      self$W_ <- t(self$S) %*% self$Omega
+      self$full_basis <- self$W_ %*% diag(self$D_w[,1])
+      self$init_count_neg_basis <- sum(self$full_basis < negativity_limit)
       
-      splits <- NULL
-      intervals <- NULL
 
-      if (runInitOptim) {
-         splits <- seq(0,1,length.out=repeats_+1)
-         splits <- rep(splits[2:repeats_],each=2)
-         intervals <- cut(seq(1,length.out=self$global_iterations),breaks = 2*(repeats_-1),labels=F)
-      }
+      splits <- seq(0,1,length.out=repeats_+1)
+      splits <- rep(splits[2:repeats_],each=2)
+      intervals <- cut(seq(1,length.out=self$global_iterations),breaks = 2*(repeats_-1),labels=F)
 
 
 
@@ -666,28 +616,32 @@ SinkhornNNLSLinseed <- R6Class(
       self$points_statistics_X <- res_$points_X
       self$points_statistics_Omega <- res_$points_Omega
   
-      colnames(self$errors_statistics) <- c("deconv_error","lamdba_error","beta_error",
+      colnames(self$errors_statistics) <- c("deconv_error","lambda_error","beta_error",
                                             "D_h_error","D_w_error","total_error","orig_deconv_error",
                                             "neg_props_count","neg_basis_count","sum_d_w")
       self$H_ <- self$X %*% self$R
       self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
       self$orig_full_proportions <- self$full_proportions
-      self$full_proportions[self$full_proportions < -1e-10] <- 0
+      self$full_proportions[self$full_proportions < negativity_limit] <- 0
       self$full_proportions <- t(t(self$full_proportions) / rowSums(t(self$full_proportions)))
 
       self$W_ <- t(self$S) %*% self$Omega
       self$full_basis <- self$W_ %*% diag(self$D_w[,1])
+
+      self$count_neg_props <- sum(self$full_proportions < negativity_limit)
+      self$count_neg_basis <- sum(self$full_basis < negativity_limit)
+
       self$orig_full_basis <- self$full_basis
-      self$full_basis[self$full_basis < -1e-10] <- 0
+      self$full_basis[self$full_basis < negativity_limit] <- 0
       self$full_basis <- self$full_basis / rowSums(self$full_basis)
       
     },
     
-    plotErrors = function(variables = c("deconv_error","lamdba_error","beta_error",
+    plotErrors = function(variables = c("deconv_error","lambda_error","beta_error",
     "D_h_error","D_w_error","total_error"),
     tail_rows = NULL) {
       if (is.null(colnames(self$errors_statistics))) {
-        colnames(self$errors_statistics) <- c("deconv_error","lamdba_error","beta_error",
+        colnames(self$errors_statistics) <- c("deconv_error","lambda_error","beta_error",
                                             "D_h_error","D_w_error","total_error","orig_deconv_error",
                                             "neg_props_count","neg_basis_count","sum_d_w")
       }
