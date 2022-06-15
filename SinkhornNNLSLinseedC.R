@@ -633,11 +633,9 @@ SinkhornNNLSLinseed <- R6Class(
       self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
       self$init_count_neg_props <- sum(self$full_proportions < -1e-10)
   
-      self$W_ <- t(self$S) %*% self$Omega %*% diag(self$D_w[,1])
-      self$init_count_neg_basis <- sum(self$W_ < -1e-10)
-
-      self$count_neg_props <- self$init_count_neg_props
-      self$count_neg_basis <- self$init_count_neg_basis
+      self$W_ <- t(self$S) %*% self$Omega 
+      self$full_basis <- self$W_ %*% diag(self$D_w[,1])
+      self$init_count_neg_basis <- sum(self$full_basis < -1e-10)
       
       splits <- NULL
       intervals <- NULL
@@ -672,11 +670,16 @@ SinkhornNNLSLinseed <- R6Class(
       self$H_ <- self$X %*% self$R
       self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
       self$orig_full_proportions <- self$full_proportions
+      self$count_neg_props <- sum(self$full_proportions < -1e-10)
+      
       self$full_proportions[self$full_proportions < -1e-10] <- 0
       self$full_proportions <- t(t(self$full_proportions) / rowSums(t(self$full_proportions)))
+      
 
       self$W_ <- t(self$S) %*% self$Omega
       self$full_basis <- self$W_ %*% diag(self$D_w[,1])
+      self$count_neg_basis <- sum(self$full_basis < -1e-10)
+
       self$orig_full_basis <- self$full_basis
       self$full_basis[self$full_basis < -1e-10] <- 0
       self$full_basis <- self$full_basis / rowSums(self$full_basis)
