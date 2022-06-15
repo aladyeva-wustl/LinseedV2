@@ -618,15 +618,15 @@ SinkhornNNLSLinseed <- R6Class(
                                             "neg_props_count","neg_basis_count","sum_d_w")
       self$H_ <- self$X %*% self$R
       self$full_proportions <- diag(self$D_h[,1]) %*% self$H_
-      self$orig_full_proportions <- self$full_proportions
-      self$full_proportions[self$full_proportions < negativity_limit] <- 0
-      self$full_proportions <- t(t(self$full_proportions) / rowSums(t(self$full_proportions)))
+      self$count_neg_props <- sum(self$full_proportions < negativity_limit)
 
       self$W_ <- t(self$S) %*% self$Omega
       self$full_basis <- self$W_ %*% diag(self$D_w[,1])
-
-      self$count_neg_props <- sum(self$full_proportions < negativity_limit)
       self$count_neg_basis <- sum(self$full_basis < negativity_limit)
+
+      self$orig_full_proportions <- self$full_proportions
+      self$full_proportions[self$full_proportions < negativity_limit] <- 0
+      self$full_proportions <- t(t(self$full_proportions) / rowSums(t(self$full_proportions)))
 
       self$orig_full_basis <- self$full_basis
       self$full_basis[self$full_basis < negativity_limit] <- 0
