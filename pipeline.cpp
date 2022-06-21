@@ -149,6 +149,7 @@ List calcErrors(const arma::mat& X,
                       Named("orig_deconv_error") = orig_deconv_error);
 }
 
+// [[Rcpp::export]]
 field<mat> derivative_stage1(const arma::mat& X,
                            const arma::mat& Omega,
                            const arma::mat& D_w,
@@ -206,6 +207,10 @@ field<mat> derivative_stage1(const arma::mat& X,
       
       new_Omega = new_Omega - coef_der_Omega * der_Omega;
     }
+    
+    //Rcout << new_Omega << std::endl;
+    //field<mat> ret_(7,1);
+    //return ret_;
     
     arma::mat vec_mtx(cell_types*cell_types,cell_types,fill::zeros);
     for (int c=0; c<cell_types; c++) {
